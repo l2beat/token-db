@@ -27,14 +27,14 @@ export const networks = pgTable('networks', {
 
 export const networkRpcs = pgTable('network_rpcs', {
   id: nanoid('id').primaryKey(),
-  networkId: integer('network_id').references(() => networks.id),
+  networkId: nanoid('network_id').references(() => networks.id),
   url: varchar('url', { length: 256 }),
   // TODO: limits
 })
 
 export const tokens = pgTable('tokens', {
   id: nanoid('id').primaryKey(),
-  networkId: integer('network_id').references(() => networks.id),
+  networkId: nanoid('network_id').references(() => networks.id),
   address: ethereumAddress('address'),
 })
 
@@ -71,11 +71,9 @@ export const bridgeEscrows = pgTable('bridge_escrows', {
 
 export const tokenBridges = pgTable('token_bridges', {
   id: nanoid('id').primaryKey(),
-  tokenId: integer('token_id')
+  tokenId: nanoid('token_id')
     .references(() => tokens.id)
     .unique(),
-  sourceTokenId: integer('source_token_id').references(() => tokens.id),
-  bridgeEscrowId: integer('bridge_escrow_id').references(
-    () => bridgeEscrows.id,
-  ),
+  sourceTokenId: nanoid('source_token_id').references(() => tokens.id),
+  bridgeEscrowId: nanoid('bridge_escrow_id').references(() => bridgeEscrows.id),
 })
