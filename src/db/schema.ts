@@ -14,33 +14,34 @@ export const sourceEnum = pgEnum('source', ['coingecko'])
 const ethereumAddress = (name: string) => char(name, { length: 42 })
 const nanoid = (name: string) => char(name, { length: 21 })
 
-export const bridges = pgTable('bridges', {
+export const bridgesTable = pgTable('bridges', {
   id: nanoid('id').primaryKey(),
   name: varchar('name', { length: 256 }),
 })
 
-export const networks = pgTable('networks', {
+export const networksTable = pgTable('networks', {
   id: nanoid('id').primaryKey(),
   chainId: integer('chain_id'),
   name: varchar('name', { length: 256 }),
+  coingeckoId: varchar('coingecko_id', { length: 256 }),
 })
 
-export const networkRpcs = pgTable('network_rpcs', {
+export const networkRpcsTable = pgTable('network_rpcs', {
   id: nanoid('id').primaryKey(),
-  networkId: nanoid('network_id').references(() => networks.id),
+  networkId: nanoid('network_id').references(() => networksTable.id),
   url: varchar('url', { length: 256 }),
   // TODO: limits
 })
 
-export const tokens = pgTable('tokens', {
+export const tokensTable = pgTable('tokens', {
   id: nanoid('id').primaryKey(),
-  networkId: nanoid('network_id').references(() => networks.id),
+  networkId: nanoid('network_id').references(() => networksTable.id),
   address: ethereumAddress('address'),
 })
 
-export const tokenMetadatas = pgTable('token_metadatas', {
+export const tokenMetadatasTable = pgTable('token_metadatas', {
   id: nanoid('id').primaryKey(),
-  tokenId: nanoid('token_id').references(() => tokens.id),
+  tokenId: nanoid('token_id').references(() => tokensTable.id),
   source: sourceEnum('source'),
   name: varchar('name', { length: 256 }),
   symbol: varchar('symbol', { length: 16 }),
@@ -49,10 +50,10 @@ export const tokenMetadatas = pgTable('token_metadatas', {
   contractName: varchar('contract_name', { length: 256 }),
 })
 
-export const deployments = pgTable('deployments', {
+export const deploymentsTable = pgTable('deployments', {
   id: nanoid('id').primaryKey(),
   tokenId: nanoid('token_id')
-    .references(() => tokens.id)
+    .references(() => tokensTable.id)
     .unique(),
   txHash: char('tx_hash', { length: 66 }),
   blockNumber: integer('block_number'),
@@ -62,18 +63,31 @@ export const deployments = pgTable('deployments', {
   isDeployerEOA: boolean('is_deployer_eoa'),
 })
 
-export const bridgeEscrows = pgTable('bridge_escrows', {
+export const bridgeEscrowsTable = pgTable('bridge_escrows', {
   id: nanoid('id').primaryKey(),
-  bridgeId: nanoid('token_id').references(() => bridges.id),
-  networkId: nanoid('network_id').references(() => networks.id),
+  bridgeId: nanoid('token_id').references(() => bridgesTable.id),
+  networkId: nanoid('network_id').references(() => networksTable.id),
   address: ethereumAddress('address'),
 })
 
-export const tokenBridges = pgTable('token_bridges', {
+export const tokenBridgesTable = pgTable('token_bridges', {
   id: nanoid('id').primaryKey(),
   tokenId: nanoid('token_id')
-    .references(() => tokens.id)
+    .references(() => tokensTable.id)
     .unique(),
-  sourceTokenId: nanoid('source_token_id').references(() => tokens.id),
-  bridgeEscrowId: nanoid('bridge_escrow_id').references(() => bridgeEscrows.id),
+  sourceTokenId: nanoid('source_token_id').references(() => tokensTable.id),
+  bridgeEscrowId: nanoid('bridge_escrow_id').references(
+    () => bridgeEscrowsTable.id,
+  ),
 })
+
+export const schema = {
+  bridges: bridgesTable,
+  networks: networksTable,
+  networkRpcs: networkRpcsTable,
+  tokens: tokensTable,
+  tokenMetadatas: tokenMetadatasTable,
+  deployments: deploymentsTable,
+  bridgeEscrows: bridgeEscrowsTable,
+  tokenBridges: tokenBridgesTable,
+}
