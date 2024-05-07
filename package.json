@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf build",
-    "dev": "tsx --watch src/main.ts",
+    "dev": "tsx --no-warnings=ExperimentalWarning --watch src/main.ts",
     "drizzle:generate": "drizzle-kit generate:pg",
     "format": "biome check .",
     "format:fix": "biome format --write .",
