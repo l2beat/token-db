@@ -1,0 +1,1 @@
+ALTER TABLE "networks" ADD COLUMN "coingecko_id" varchar(256);
