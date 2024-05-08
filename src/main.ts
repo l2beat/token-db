@@ -5,15 +5,46 @@ import { networksRepository } from './db/repository/networks.js'
 import { tokensRepository } from './db/repository/tokens.js'
 
 import { buildTokenListSource } from './sources/tokenList.js'
+import { buildCoingeckoSource } from './sources/coingecko.js'
 import { tokenMetadataRepository } from './db/repository/token-metadata.js'
 
 await migrateDatabase()
 
 const logger = new Logger({ format: 'pretty', colors: true })
 
-const inchTokenListSource = buildTokenListSource({
-  url: 'https://tokens.1inch.eth.link/',
-  tag: '1INCH',
+const lists = [
+  {
+    tag: '1INCH',
+    url: 'https://tokens.1inch.eth.link',
+  },
+  {
+    tag: 'AAVE',
+    url: 'http://tokenlist.aave.eth.link',
+  },
+  {
+    tag: 'MYCRYPTO',
+    url: 'https://uniswap.mycryptoapi.com/',
+  },
+  {
+    tag: 'SUPERCHAIN',
+    url: 'https://static.optimism.io/optimism.tokenlist.json',
+  },
+]
+
+const tokenListSources = lists.map(({ tag, url }) =>
+  buildTokenListSource({
+    tag,
+    url,
+    logger,
+    repositories: {
+      networks: networksRepository,
+      tokens: tokensRepository,
+      meta: tokenMetadataRepository,
+    },
+  }),
+)
+
+const coingeckoSource = buildCoingeckoSource({
   logger,
   repositories: {
     networks: networksRepository,
@@ -22,7 +53,7 @@ const inchTokenListSource = buildTokenListSource({
   },
 })
 
-const pipeline = [inchTokenListSource]
+const pipeline = [coingeckoSource, ...tokenListSources]
 
 for (const step of pipeline) {
   await step()

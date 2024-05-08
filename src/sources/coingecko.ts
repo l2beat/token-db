@@ -21,7 +21,7 @@ type Dependencies = {
 }
 
 export function buildCoingeckoSource($: Dependencies) {
-  const logger = $.logger.for('COINGECKO_SOURCE')
+  const logger = $.logger.for('CoinGecko')
 
   return async function () {
     const res = await zodFetch(
