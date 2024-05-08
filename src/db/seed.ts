@@ -52,6 +52,11 @@ async function resetDb() {
     throw new Error('No table schema found')
   }
 
+  const dbUrl = new URL(env.DATABASE_URL)
+  if (!dbUrl.host.includes('local')) {
+    throw new Error('Cannot truncate other database than local')
+  }
+
   const queries = Object.values(tableSchema).map((table) => {
     return sql.raw(`TRUNCATE TABLE ${table.dbName} CASCADE;`)
   })
