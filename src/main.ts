@@ -1,17 +1,73 @@
-import { queryClient } from './db/client.js'
+import { db, queryClient } from './db/client.js'
 import { migrateDatabase } from './db/migrate.js'
-import { syncAxelarGateway } from './sources/axelar-gateway.js'
-import { syncCoingecko } from './sources/coingecko.js'
 import { Logger } from '@l2beat/backend-tools'
+import { networksRepository } from './db/repository/networks.js'
+import { tokensRepository } from './db/repository/tokens.js'
+
+import { buildTokenListSource } from './sources/tokenList.js'
+import { buildCoingeckoSource } from './sources/coingecko.js'
+import { tokenMetadataRepository } from './db/repository/token-metadata.js'
+import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
 
 await migrateDatabase()
 
-const pipeline = [syncCoingecko, syncAxelarGateway]
+const logger = new Logger({ format: 'pretty', colors: true })
 
-const logger = new Logger({})
+const lists = [
+  {
+    tag: '1INCH',
+    url: 'https://tokens.1inch.eth.link',
+  },
+  {
+    tag: 'AAVE',
+    url: 'http://tokenlist.aave.eth.link',
+  },
+  {
+    tag: 'MYCRYPTO',
+    url: 'https://uniswap.mycryptoapi.com/',
+  },
+  // Breaks do-update-set double-insert ;(((
+  // {
+  //   tag: 'SUPERCHAIN',
+  //   url: 'https://static.optimism.io/optimism.tokenlist.json',
+  // },
+]
+
+const tokenListSources = lists.map(({ tag, url }) =>
+  buildTokenListSource({
+    tag,
+    url,
+    logger,
+    repositories: {
+      networks: networksRepository,
+      tokens: tokensRepository,
+      meta: tokenMetadataRepository,
+    },
+  }),
+)
+
+const coingeckoSource = buildCoingeckoSource({
+  logger,
+  repositories: {
+    networks: networksRepository,
+    tokens: tokensRepository,
+    meta: tokenMetadataRepository,
+  },
+})
+
+const axelarGatewaySource = buildAxelarGatewaySource({
+  logger,
+  db: db,
+  repositories: {
+    tokens: tokensRepository,
+    meta: tokenMetadataRepository,
+  },
+})
+
+const pipeline = [coingeckoSource]
 
 for (const step of pipeline) {
-  await step({ logger })
+  await step()
 }
 
 stop()

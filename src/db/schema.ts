@@ -3,15 +3,11 @@ import {
   boolean,
   char,
   integer,
-  pgEnum,
   pgTable,
   timestamp,
   uniqueIndex,
   varchar,
 } from 'drizzle-orm/pg-core'
-
-// TODO: Add more sources
-export const sourceEnum = pgEnum('source', ['coingecko', 'axelar-gateway'])
 
 const ethereumAddress = (name: string) => char(name, { length: 42 })
 const nanoid = (name: string) => char(name, { length: 21 })
@@ -73,8 +69,8 @@ export const tokenMetadatasTable = pgTable(
     tokenId: nanoid('token_id')
       .notNull()
       .references(() => tokensTable.id),
-    externalId: varchar('external_id', { length: 256 }).notNull(),
-    source: sourceEnum('source').notNull(),
+    externalId: varchar('external_id', { length: 256 }),
+    source: varchar('source', { length: 256 }).notNull(),
     name: varchar('name', { length: 256 }),
     symbol: varchar('symbol', { length: 16 }),
     decimals: integer('decimals'),
@@ -82,9 +78,9 @@ export const tokenMetadatasTable = pgTable(
     contractName: varchar('contract_name', { length: 256 }),
   },
   (self) => ({
-    uniqueSourceExternalId: uniqueIndex('unique_source_external_id').on(
+    uniqueSourceExternalId: uniqueIndex('unique_token_id_source').on(
+      self.tokenId,
       self.source,
-      self.externalId,
     ),
   }),
 )

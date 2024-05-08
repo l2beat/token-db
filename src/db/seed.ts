@@ -25,7 +25,7 @@ async function seed() {
       .map((network) => ({
         coingeckoId: network.id,
         name: network.name,
-        chainId: network.chain_identifier,
+        chainId: network.chain_identifier!,
       })),
   )
 

@@ -3,11 +3,23 @@ import { tokensTable } from '../schema.js'
 import { db } from '../client.js'
 import { nanoid } from 'nanoid'
 
+export { TokensRepository }
+export type { Token }
+
+type Token = InferInsertModel<typeof tokensTable>
+
 class TokensRepository {
   async upsertMany(tokens: Omit<InferInsertModel<typeof tokensTable>, 'id'>[]) {
     await db
       .insert(tokensTable)
-      .values(tokens.map((token) => ({ ...token, id: nanoid() })))
+      // TODO: to checksum?
+      .values(
+        tokens.map((token) => ({
+          ...token,
+          address: token.address.toUpperCase(),
+          id: nanoid(),
+        })),
+      )
       .onConflictDoNothing()
   }
 
@@ -15,7 +27,8 @@ class TokensRepository {
     tokens: Omit<InferInsertModel<typeof tokensTable>, 'id'>[],
   ) {
     await this.upsertMany(tokens)
-    return await db
+
+    return db
       .select()
       .from(tokensTable)
       .where(
