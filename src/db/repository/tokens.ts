@@ -12,7 +12,14 @@ class TokensRepository {
   async upsertMany(tokens: Omit<InferInsertModel<typeof tokensTable>, 'id'>[]) {
     await db
       .insert(tokensTable)
-      .values(tokens.map((token) => ({ ...token, id: nanoid() })))
+      // TODO: to checksum?
+      .values(
+        tokens.map((token) => ({
+          ...token,
+          address: token.address.toUpperCase(),
+          id: nanoid(),
+        })),
+      )
       .onConflictDoNothing()
   }
 

@@ -78,9 +78,9 @@ export const tokenMetadatasTable = pgTable(
     contractName: varchar('contract_name', { length: 256 }),
   },
   (self) => ({
-    uniqueSourceExternalId: uniqueIndex('unique_source_external_id').on(
+    uniqueSourceExternalId: uniqueIndex('unique_token_id_source').on(
+      self.tokenId,
       self.source,
-      self.externalId,
     ),
   }),
 )

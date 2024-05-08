@@ -1,14 +1,9 @@
 import { Logger, assert } from '@l2beat/backend-tools'
-import { Source } from './source.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
 import { NetworksRepository } from '../db/repository/networks.js'
-import { Token, TokensRepository } from '../db/repository/tokens.js'
-import {
-  TokenMetadata,
-  TokenMetadataRepository,
-} from '../db/repository/tokenMetadata.js'
-import { nanoid } from 'nanoid'
+import { TokensRepository } from '../db/repository/tokens.js'
+import { TokenMetadataRepository } from '../db/repository/tokenMetadata.js'
 
 type Dependencies = {
   url: string
@@ -35,7 +30,7 @@ export function buildTokenListSource($: Dependencies) {
       const chain = networks.find((n) => n.chainId === token.chainId)
 
       if (!chain) {
-        logger.error('Skipping token - chain not found', {
+        logger.debug('Skipping token - chain not found', {
           chainId: token.chainId,
           token,
         })
@@ -44,7 +39,7 @@ export function buildTokenListSource($: Dependencies) {
 
       const insertToken = {
         networkId: chain.id,
-        address: token.address,
+        address: token.address.toUpperCase(),
       }
 
       const meta = {

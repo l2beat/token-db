@@ -20,7 +20,7 @@ class TokenMetadataRepository {
         })),
       )
       .onConflictDoUpdate({
-        target: [tokenMetadatasTable.source, tokenMetadatasTable.externalId],
+        target: [tokenMetadatasTable.tokenId, tokenMetadatasTable.source],
         set: conflictUpdateSetAllColumns(tokenMetadatasTable),
       })
   }

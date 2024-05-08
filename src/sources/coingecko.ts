@@ -1,9 +1,7 @@
 import { Logger, assert } from '@l2beat/backend-tools'
 import { z } from 'zod'
-import { InferInsertModel } from 'drizzle-orm'
 
 import { zodFetch } from '../utils/zod-fetch.js'
-import { tokenMetadatasTable, tokensTable } from '../db/schema.js'
 import { Network, NetworksRepository } from '../db/repository/networks.js'
 import { Token, TokensRepository } from '../db/repository/tokens.js'
 import {
@@ -56,13 +54,14 @@ export function buildCoingeckoSource($: Dependencies) {
           .map((platform) => ({
             token: {
               networkId: platform.network.id,
-              address: platform.address,
+              address: platform.address.toUpperCase(),
             },
             tokenMeta: {
               externalId: token.id,
               symbol: token.symbol,
               name: token.name,
-              source: 'coingecko',
+              // Code-level constraint?
+              source: 'COINGECKO',
             },
           })),
       )
