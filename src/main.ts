@@ -3,6 +3,7 @@ import { Logger } from '@l2beat/backend-tools'
 import { buildTokenListSource } from './sources/tokenList.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
+
 import { createPrismaClient } from './db/prisma.js'
 
 const db = createPrismaClient()
