@@ -1,5 +1,4 @@
-import { sql } from 'drizzle-orm'
-import { db, queryClient } from './db/client.js'
+import { queryClient } from './db/client.js'
 import { migrateDatabase } from './db/migrate.js'
 import { syncAxelarGateway } from './sources/axelar-gateway.js'
 import { syncCoingecko } from './sources/coingecko.js'

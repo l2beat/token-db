@@ -1,6 +1,6 @@
 {
-  "id": "ff57d409-218b-404b-a1e7-99f61da3a5fe",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "9cca7309-e7c8-4cfd-89a8-9e57d20d17ca",
+  "prevId": "0754532b-a157-43bb-8d48-0077b752baa5",
   "version": "5",
   "dialect": "pg",
   "tables": {
@@ -212,6 +212,12 @@
           "type": "varchar(256)",
           "primaryKey": false,
           "notNull": false
+        },
+        "coingecko_id": {
+          "name": "coingecko_id",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -301,13 +307,19 @@
           "name": "token_id",
           "type": "char(21)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": true
         },
         "source": {
           "name": "source",
           "type": "source",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "name": {
           "name": "name",
@@ -340,7 +352,13 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "unique_source_external_id": {
+          "name": "unique_source_external_id",
+          "columns": ["source", "external_id"],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "token_metadatas_token_id_tokens_id_fk": {
           "name": "token_metadatas_token_id_tokens_id_fk",
@@ -369,16 +387,22 @@
           "name": "network_id",
           "type": "char(21)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "address": {
           "name": "address",
           "type": "char(42)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "unique_network_address": {
+          "name": "unique_network_address",
+          "columns": ["network_id", "address"],
+          "isUnique": true
+        }
+      },
       "foreignKeys": {
         "tokens_network_id_networks_id_fk": {
           "name": "tokens_network_id_networks_id_fk",
