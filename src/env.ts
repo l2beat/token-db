@@ -4,7 +4,7 @@ import { z } from 'zod'
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   DATABASE_URL: z.string(),
-  COINGECKO_KEY: z.string().or(z.undefined()),
+  COINGECKO_KEY: z.string().optional(),
 })
 
 export const env = (() => {
