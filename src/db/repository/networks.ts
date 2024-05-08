@@ -1,4 +1,4 @@
-import { InferInsertModel, isNotNull } from 'drizzle-orm'
+import { InferInsertModel, and, eq, isNotNull, or } from 'drizzle-orm'
 import { db } from '../client.js'
 import { networksTable } from '../schema.js'
 import { assert } from '@l2beat/backend-tools'
@@ -12,6 +12,30 @@ class NetworksRepository {
       .insert(networksTable)
       .values(networks.map((network) => ({ ...network, id: nanoid() })))
       .onConflictDoNothing()
+  }
+
+  async upsertAndFindMany(
+    networks: Omit<InferInsertModel<typeof networksTable>, 'id'>[],
+  ) {
+    await this.upsertMany(networks)
+    return await db
+      .select()
+      .from(networksTable)
+      .where(
+        or(
+          ...networks.map((network) =>
+            and(
+              network.coingeckoId
+                ? eq(networksTable.coingeckoId, network.coingeckoId)
+                : undefined,
+              network.chainId
+                ? eq(networksTable.chainId, network.chainId)
+                : undefined,
+              network.name ? eq(networksTable.name, network.name) : undefined,
+            ),
+          ),
+        ),
+      )
   }
 
   async findCoingeckoNetworks() {
