@@ -1,11 +1,11 @@
-import { queryClient } from './db/client.js'
-import { migrateDatabase } from './db/migrate.js'
+import { PrismaClient } from '@prisma/client'
+import { syncAxelarGateway } from './sources/axelar-gateway.js'
 import { syncCoingecko } from './sources/coingecko.js'
 import { Logger } from '@l2beat/backend-tools'
 
-await migrateDatabase()
+const prisma = new PrismaClient()
 
-const pipeline = [syncCoingecko]
+const pipeline = [syncCoingecko, syncAxelarGateway]
 
 const logger = new Logger({})
 
@@ -13,10 +13,10 @@ for (const step of pipeline) {
   await step({ logger })
 }
 
-stop()
+await stop()
 
-function stop() {
-  queryClient.end()
+async function stop() {
+  await prisma.$disconnect()
 }
 
 process.on('SIGINT', () => stop)
