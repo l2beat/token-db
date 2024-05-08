@@ -16,6 +16,7 @@
     "lint": "eslint --ext .ts --max-warnings 0 src",
     "lint:fix": "eslint --ext .ts --max-warnings 0 src --fix",
     "nanoid": "nanoid",
+    "seed": "tsx src/db/seed.ts",
     "start": "tsx src/main.ts",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
