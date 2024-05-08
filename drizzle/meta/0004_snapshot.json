@@ -1,6 +1,6 @@
 {
-  "id": "9b23d920-c05e-4fae-ad69-682ad792b057",
-  "prevId": "2396f5d6-ce5d-4802-adaf-5933a73a7b5d",
+  "id": "58b854a4-d620-4fb2-996a-4e940f142a4e",
+  "prevId": "ec092f8a-9cba-4315-8cfa-46be298864fe",
   "version": "5",
   "dialect": "pg",
   "tables": {
@@ -181,13 +181,13 @@
           "name": "network_id",
           "type": "char(21)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "url": {
           "name": "url",
           "type": "varchar(256)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         }
       },
       "indexes": {},
@@ -223,17 +223,23 @@
           "name": "chain_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "name": {
           "name": "name",
           "type": "varchar(256)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "coingecko_id": {
           "name": "coingecko_id",
           "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "axelar_gateway": {
+          "name": "axelar_gateway",
+          "type": "char(42)",
           "primaryKey": false,
           "notNull": false
         }
@@ -385,11 +391,11 @@
         }
       },
       "indexes": {
-        "unique_source_external_id": {
-          "name": "unique_source_external_id",
+        "unique_token_id_source": {
+          "name": "unique_token_id_source",
           "columns": [
-            "source",
-            "external_id"
+            "token_id",
+            "source"
           ],
           "isUnique": true
         }

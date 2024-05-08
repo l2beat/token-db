@@ -7,6 +7,7 @@ import { tokensRepository } from './db/repository/tokens.js'
 import { buildTokenListSource } from './sources/tokenList.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { tokenMetadataRepository } from './db/repository/token-metadata.js'
+import { syncAxelarGateway } from './sources/axelar-gateway.js'
 
 await migrateDatabase()
 
@@ -54,10 +55,10 @@ const coingeckoSource = buildCoingeckoSource({
   },
 })
 
-const pipeline = [coingeckoSource, ...tokenListSources]
+const pipeline = [syncAxelarGateway]
 
 for (const step of pipeline) {
-  await step()
+  await step({ logger })
 }
 
 stop()

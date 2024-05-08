@@ -1,1 +1,0 @@
-ALTER TABLE "token_metadatas" ALTER COLUMN "source" SET DATA TYPE varchar(256);
