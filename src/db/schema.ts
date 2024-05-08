@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm'
 import {
   boolean,
   char,
@@ -10,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core'
 
 // TODO: Add more sources
-export const sourceEnum = pgEnum('source', ['coingecko'])
+export const sourceEnum = pgEnum('source', ['coingecko', 'axelar-gateway'])
 
 const ethereumAddress = (name: string) => char(name, { length: 42 })
 const nanoid = (name: string) => char(name, { length: 21 })
@@ -22,17 +23,31 @@ export const bridgesTable = pgTable('bridges', {
 
 export const networksTable = pgTable('networks', {
   id: nanoid('id').primaryKey(),
-  chainId: integer('chain_id'),
-  name: varchar('name', { length: 256 }),
+  chainId: integer('chain_id').notNull(),
+  name: varchar('name', { length: 256 }).notNull(),
   coingeckoId: varchar('coingecko_id', { length: 256 }),
+  axelarGateway: ethereumAddress('axelar_gateway'),
 })
+
+export const networksRelations = relations(networksTable, ({ many }) => ({
+  rpcs: many(networkRpcsTable),
+}))
 
 export const networkRpcsTable = pgTable('network_rpcs', {
   id: nanoid('id').primaryKey(),
-  networkId: nanoid('network_id').references(() => networksTable.id),
-  url: varchar('url', { length: 256 }),
+  networkId: nanoid('network_id')
+    .notNull()
+    .references(() => networksTable.id),
+  url: varchar('url', { length: 256 }).notNull(),
   // TODO: limits
 })
+
+export const networkRpcsRelations = relations(networkRpcsTable, ({ one }) => ({
+  network: one(networksTable, {
+    fields: [networkRpcsTable.networkId],
+    references: [networksTable.id],
+  }),
+}))
 
 export const tokensTable = pgTable(
   'tokens',
@@ -108,7 +123,9 @@ export const tokenBridgesTable = pgTable('token_bridges', {
 export const schema = {
   bridges: bridgesTable,
   networks: networksTable,
+  networksRelations,
   networkRpcs: networkRpcsTable,
+  networkRpcsRelations,
   tokens: tokensTable,
   tokenMetadatas: tokenMetadatasTable,
   deployments: deploymentsTable,
