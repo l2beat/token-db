@@ -3,7 +3,9 @@ import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
 import { NetworksRepository } from '../db/repository/networks.js'
 import { TokensRepository } from '../db/repository/tokens.js'
-import { TokenMetadataRepository } from '../db/repository/tokenMetadata.js'
+import { TokenMetadataRepository } from '../db/repository/token-metadata.js'
+
+export { buildTokenListSource }
 
 type Dependencies = {
   url: string
@@ -16,7 +18,7 @@ type Dependencies = {
   }
 }
 
-export function buildTokenListSource($: Dependencies) {
+function buildTokenListSource($: Dependencies) {
   const logger = $.logger.for('TokenListSource').tag(`${$.tag}`)
 
   return async function () {

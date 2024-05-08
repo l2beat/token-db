@@ -9,6 +9,8 @@ import {
   TokenMetadataRepository,
 } from '../db/repository/token-metadata.js'
 
+export { buildCoingeckoSource }
+
 type Dependencies = {
   logger: Logger
   repositories: {
@@ -18,7 +20,7 @@ type Dependencies = {
   }
 }
 
-export function buildCoingeckoSource($: Dependencies) {
+function buildCoingeckoSource($: Dependencies) {
   const logger = $.logger.for('CoinGecko')
 
   return async function () {
