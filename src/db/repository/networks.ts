@@ -4,6 +4,10 @@ import { networksTable } from '../schema.js'
 import { assert } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
 
+export { NetworksRepository }
+export type { Network }
+
+type Network = InferInsertModel<typeof networksTable>
 class NetworksRepository {
   async upsertMany(
     networks: Omit<InferInsertModel<typeof networksTable>, 'id'>[],
@@ -52,6 +56,10 @@ class NetworksRepository {
         coingeckoId: network.coingeckoId,
       }
     })
+  }
+
+  async findAll() {
+    return db.select().from(networksTable)
   }
 }
 

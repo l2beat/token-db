@@ -3,6 +3,11 @@ import { tokensTable } from '../schema.js'
 import { db } from '../client.js'
 import { nanoid } from 'nanoid'
 
+export { TokensRepository }
+export type { Token }
+
+type Token = InferInsertModel<typeof tokensTable>
+
 class TokensRepository {
   async upsertMany(tokens: Omit<InferInsertModel<typeof tokensTable>, 'id'>[]) {
     await db
@@ -15,7 +20,8 @@ class TokensRepository {
     tokens: Omit<InferInsertModel<typeof tokensTable>, 'id'>[],
   ) {
     await this.upsertMany(tokens)
-    return await db
+
+    return db
       .select()
       .from(tokensTable)
       .where(
