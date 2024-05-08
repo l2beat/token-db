@@ -39,12 +39,8 @@
           "name": "bridge_escrows_token_id_bridges_id_fk",
           "tableFrom": "bridge_escrows",
           "tableTo": "bridges",
-          "columnsFrom": [
-            "token_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["token_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -52,12 +48,8 @@
           "name": "bridge_escrows_network_id_networks_id_fk",
           "tableFrom": "bridge_escrows",
           "tableTo": "networks",
-          "columnsFrom": [
-            "network_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["network_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -146,12 +138,8 @@
           "name": "deployments_token_id_tokens_id_fk",
           "tableFrom": "deployments",
           "tableTo": "tokens",
-          "columnsFrom": [
-            "token_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["token_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -161,9 +149,7 @@
         "deployments_token_id_unique": {
           "name": "deployments_token_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_id"
-          ]
+          "columns": ["token_id"]
         }
       }
     },
@@ -196,12 +182,8 @@
           "name": "network_rpcs_network_id_networks_id_fk",
           "tableFrom": "network_rpcs",
           "tableTo": "networks",
-          "columnsFrom": [
-            "network_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["network_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -278,12 +260,8 @@
           "name": "token_bridges_token_id_tokens_id_fk",
           "tableFrom": "token_bridges",
           "tableTo": "tokens",
-          "columnsFrom": [
-            "token_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["token_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -291,12 +269,8 @@
           "name": "token_bridges_source_token_id_tokens_id_fk",
           "tableFrom": "token_bridges",
           "tableTo": "tokens",
-          "columnsFrom": [
-            "source_token_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_token_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -304,12 +278,8 @@
           "name": "token_bridges_bridge_escrow_id_bridge_escrows_id_fk",
           "tableFrom": "token_bridges",
           "tableTo": "bridge_escrows",
-          "columnsFrom": [
-            "bridge_escrow_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bridge_escrow_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -319,9 +289,7 @@
         "token_bridges_token_id_unique": {
           "name": "token_bridges_token_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_id"
-          ]
+          "columns": ["token_id"]
         }
       }
     },
@@ -384,12 +352,8 @@
           "name": "token_metadatas_token_id_tokens_id_fk",
           "tableFrom": "token_metadatas",
           "tableTo": "tokens",
-          "columnsFrom": [
-            "token_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["token_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -426,12 +390,8 @@
           "name": "tokens_network_id_networks_id_fk",
           "tableFrom": "tokens",
           "tableTo": "networks",
-          "columnsFrom": [
-            "network_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["network_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
