@@ -5,40 +5,42 @@ import { z } from 'zod'
 import { networksRepository } from './repository/networks.js'
 import { env } from '../env.js'
 
-const coingeckoResponseSchema = z.array(
+async function seed() {
+  await resetDb()
+
+  const coingeckoKey = env.COINGECKO_KEY
+
+  if (!coingeckoKey) {
+    throw new Error('COINGECKO_KEY is not set')
+  }
+
+  const networks = await zodFetch(
+    `https://pro-api.coingecko.com/api/v3/asset_platforms?x_cg_pro_api_key=${env.COINGECKO_KEY}`,
+    networksResponseSchema,
+  )
+
+  await networksRepository.upsertMany(
+    networks
+      .filter((n) => n.chain_identifier !== null)
+      .map((network) => ({
+        coingeckoId: network.id,
+        name: network.name,
+        chainId: network.chain_identifier,
+      })),
+  )
+
+  stop()
+
+  process.on('SIGINT', () => stop)
+}
+
+const networksResponseSchema = z.array(
   z.object({
     id: z.string(),
     chain_identifier: z.number().nullable(),
     name: z.string(),
   }),
 )
-
-await resetDb()
-
-const coingeckoKey = env.COINGECKO_KEY
-
-if (!coingeckoKey) {
-  throw new Error('COINGECKO_KEY is not set')
-}
-
-const networks = await zodFetch(
-  `https://pro-api.coingecko.com/api/v3/asset_platforms?x_cg_pro_api_key=${env.COINGECKO_KEY}`,
-  coingeckoResponseSchema,
-)
-
-await networksRepository.upsertMany(
-  networks
-    .filter((n) => n.chain_identifier !== null)
-    .map((network) => ({
-      coingeckoId: network.id,
-      name: network.name,
-      chainId: network.chain_identifier,
-    })),
-)
-
-stop()
-
-process.on('SIGINT', () => stop)
 
 function stop() {
   queryClient.end()
@@ -64,3 +66,5 @@ async function resetDb() {
 
   console.log('Database emptied ✅')
 }
+
+await seed()
