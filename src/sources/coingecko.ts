@@ -2,26 +2,18 @@ import { Logger, assert } from '@l2beat/backend-tools'
 import { z } from 'zod'
 
 import { zodFetch } from '../utils/zod-fetch.js'
-import { Network, NetworksRepository } from '../db/repository/networks.js'
-import { Token, TokensRepository } from '../db/repository/tokens.js'
-import {
-  TokenMetadata,
-  TokenMetadataRepository,
-} from '../db/repository/token-metadata.js'
+import { nanoid } from 'nanoid'
+import { PrismaClient } from '../db/prisma.js'
 
 export { buildCoingeckoSource }
 
 type Dependencies = {
   logger: Logger
-  repositories: {
-    networks: NetworksRepository
-    tokens: TokensRepository
-    meta: TokenMetadataRepository
-  }
+  db: PrismaClient
 }
 
-function buildCoingeckoSource($: Dependencies) {
-  const logger = $.logger.for('CoinGecko')
+function buildCoingeckoSource({ db, logger }: Dependencies) {
+  logger = logger.for('CoinGecko')
 
   return async function () {
     const res = await zodFetch(
@@ -29,26 +21,41 @@ function buildCoingeckoSource($: Dependencies) {
       coingeckoResponseSchema,
     )
 
-    const networks = await $.repositories.networks.findCoingeckoNetworks()
+    const networks = await db.network
+      .findMany({
+        where: {
+          coingeckoId: {
+            not: null,
+          },
+        },
+      })
+      .then((result) =>
+        result.map((r) => {
+          const { coingeckoId } = r
+          assert(coingeckoId, 'Expected coingeckoId')
+          return {
+            ...r,
+            coingeckoId: coingeckoId,
+          }
+        }),
+      )
 
-    const tokens: {
-      token: Omit<Token, 'id'>
-      tokenMeta: Omit<TokenMetadata, 'id' | 'tokenId'>
-    }[] = res
+    const tokens = res
       .map((token) => ({
         ...token,
-        platforms: Object.entries(token.platforms ?? {})
-          .map(([platform, address]) => ({
-            platform,
-            address,
-            network: networks.find(
+        platforms: Object.entries(token.platforms ?? {}).flatMap(
+          ([platform, address]) => {
+            const network = networks.find(
               (network) => network.coingeckoId === platform,
-            ),
-          }))
-          .filter(
-            (entry): entry is typeof entry & { network: Network } =>
-              !!entry.network,
-          ),
+            )
+
+            if (!network) {
+              return []
+            }
+
+            return { platform, address, network }
+          },
+        ),
       }))
       .flatMap((token) =>
         token.platforms
@@ -56,7 +63,8 @@ function buildCoingeckoSource($: Dependencies) {
           .map((platform) => ({
             token: {
               networkId: platform.network.id,
-              address: platform.address.toUpperCase(),
+              address: platform.address,
+              network: platform.network,
             },
             tokenMeta: {
               externalId: token.id,
@@ -68,23 +76,45 @@ function buildCoingeckoSource($: Dependencies) {
           })),
       )
 
-    if (tokens.length > 0) {
-      const upsertedTokens = await $.repositories.tokens.upsertAndFindMany(
-        tokens.map(({ token }) => token),
-      )
+    await db.token.upsertMany({
+      data: tokens.map(({ token }) => ({
+        id: nanoid(),
+        networkId: token.networkId,
+        address: token.address,
+      })),
+      conflictPaths: ['networkId', 'address'],
+    })
 
-      await $.repositories.meta.upsertMany(
-        tokens.map(({ token, tokenMeta }) => {
-          const upsertedToken = upsertedTokens.find(
-            (upsertedToken) =>
-              upsertedToken.address === token.address &&
-              upsertedToken.networkId === token.networkId,
-          )
-          assert(upsertedToken, 'Expected token to be upserted')
-          return { ...tokenMeta, tokenId: upsertedToken.id }
-        }),
-      )
-    }
+    const tokenIds = await db.token.findMany({
+      select: { id: true, networkId: true, address: true },
+      where: {
+        OR: tokens.map(({ token }) => ({
+          AND: {
+            networkId: token.networkId,
+            address: token.address,
+          },
+        })),
+      },
+    })
+
+    const data = tokens.map(({ token, tokenMeta }) => {
+      const tokenId = tokenIds.find(
+        (t) => t.networkId === token.networkId && t.address === token.address,
+      )?.id
+
+      assert(tokenId, 'Expected tokenId')
+
+      return {
+        id: nanoid(),
+        tokenId: tokenId,
+        ...tokenMeta,
+      }
+    })
+
+    await db.tokenMeta.upsertMany({
+      data,
+      conflictPaths: ['tokenId', 'source'],
+    })
 
     logger.info(`Synced ${tokens.length} tokens from Coingecko`)
   }

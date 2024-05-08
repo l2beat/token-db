@@ -1,47 +1,41 @@
 import { createPublicClient, http, isAddress, parseAbiItem } from 'viem'
-import { Database } from '../db/client.js'
-import { isNotNull } from 'drizzle-orm'
-import { networksTable } from '../db/schema.js'
 import { Logger, assert } from '@l2beat/backend-tools'
 import { SetRequired } from 'type-fest'
-import { TokensRepository } from '../db/repository/tokens.js'
-import { TokenMetadataRepository } from '../db/repository/token-metadata.js'
+import { nanoid } from 'nanoid'
+import { PrismaClient } from '../db/prisma.js'
 
 export { buildAxelarGatewaySource }
 
 type Dependencies = {
   logger: Logger
-  db: Database
-  repositories: {
-    tokens: TokensRepository
-    meta: TokenMetadataRepository
-  }
+  db: PrismaClient
 }
 
-function buildAxelarGatewaySource($: Dependencies) {
-  const logger = $.logger.for('AxelarGatewaySource')
+function buildAxelarGatewaySource({ logger, db }: Dependencies) {
+  logger = logger.for('AxelarGatewaySource')
 
   return async function () {
-    const networks = await $.db.query.networks
+    const networks = await db.network
       .findMany({
-        with: { rpcs: true },
-        where: isNotNull(networksTable.axelarGateway),
+        include: {
+          rpcs: true,
+        },
+        where: {
+          axelarGatewayAddress: {
+            not: null,
+          },
+        },
       })
-      .then((networks) =>
-        networks
-          .map((network) => {
-            const axelarGateway = network.axelarGateway
-            assert(axelarGateway, 'Expected network to have axelarGateway')
-            assert(
-              isAddress(axelarGateway),
-              'Expected axelarGateway to be an address',
-            )
-            return {
-              ...network,
-              axelarGateway,
-            }
-          })
-          .filter((network) => network.rpcs.length > 0),
+      .then((result) =>
+        result.map((r) => {
+          const { axelarGatewayAddress } = r
+          assert(axelarGatewayAddress, 'Expected axelarGatewayAddress')
+          assert(isAddress(axelarGatewayAddress), 'Expected address')
+          return {
+            ...r,
+            axelarGatewayAddress: axelarGatewayAddress,
+          }
+        }),
       )
 
     for (const network of networks) {
@@ -55,7 +49,7 @@ function buildAxelarGatewaySource($: Dependencies) {
         event: parseAbiItem(
           'event TokenDeployed(string symbol, address tokenAddresses)',
         ),
-        address: network.axelarGateway,
+        address: network.axelarGatewayAddress,
         fromBlock: 0n,
         toBlock: 'latest',
       })
@@ -80,22 +74,35 @@ function buildAxelarGatewaySource($: Dependencies) {
           },
         }))
 
-      const upsertedTokens = await $.repositories.tokens.upsertAndFindMany(
-        tokens.map(({ token }) => token),
-      )
-      await $.repositories.meta.upsertMany(
-        tokens.map(({ token, tokenMeta }) => {
-          const tokenId = upsertedTokens.find(
-            (tokenId) =>
-              tokenId.networkId === token.networkId &&
-              tokenId.address === token.address,
-          )?.id
+      await db.token.upsertMany({
+        data: tokens.map(({ token }) => ({
+          id: nanoid(),
+          ...token,
+        })),
+        conflictPaths: ['networkId', 'address'],
+      })
 
-          assert(tokenId, 'Expected token to be upserted')
+      const tokenIds = await db.token.findMany({
+        select: { id: true, networkId: true, address: true },
+        where: {
+          OR: tokens.map(({ token }) => ({
+            networkId: token.networkId,
+            address: token.address,
+          })),
+        },
+      })
 
-          return { ...tokenMeta, tokenId }
-        }),
-      )
+      await db.tokenMeta.upsertMany({
+        data: tokens.map(({ token, tokenMeta }) => ({
+          id: nanoid(),
+          tokenId: tokenIds.find(
+            (t) =>
+              t.networkId === token.networkId && t.address === token.address,
+          )!.id,
+          ...tokenMeta,
+        })),
+        conflictPaths: ['tokenId', 'source'],
+      })
 
       logger.info(`Synced ${tokens.length} tokens from Axelar Gateway`)
     }

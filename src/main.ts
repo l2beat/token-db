@@ -1,14 +1,11 @@
-import { PrismaClient } from '@prisma/client'
 import { Logger } from '@l2beat/backend-tools'
-import { networksRepository } from './db/repository/networks.js'
-import { tokensRepository } from './db/repository/tokens.js'
-import { tokenMetadataRepository } from './db/repository/token-metadata.js'
 
 import { buildTokenListSource } from './sources/tokenList.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
+import { createPrismaClient } from './db/prisma.js'
 
-const prisma = new PrismaClient()
+const db = createPrismaClient()
 
 const logger = new Logger({ format: 'pretty', colors: true })
 
@@ -37,30 +34,18 @@ const tokenListSources = lists.map(({ tag, url }) =>
     tag,
     url,
     logger,
-    repositories: {
-      networks: networksRepository,
-      tokens: tokensRepository,
-      meta: tokenMetadataRepository,
-    },
+    db,
   }),
 )
 
 const coingeckoSource = buildCoingeckoSource({
   logger,
-  repositories: {
-    networks: networksRepository,
-    tokens: tokensRepository,
-    meta: tokenMetadataRepository,
-  },
+  db,
 })
 
 const axelarGatewaySource = buildAxelarGatewaySource({
   logger,
-  db: db,
-  repositories: {
-    tokens: tokensRepository,
-    meta: tokenMetadataRepository,
-  },
+  db,
 })
 
 const pipeline = [coingeckoSource]
@@ -72,7 +57,7 @@ for (const step of pipeline) {
 await stop()
 
 async function stop() {
-  await prisma.$disconnect()
+  await db.$disconnect()
 }
 
 process.on('SIGINT', () => stop)

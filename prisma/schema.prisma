@@ -11,7 +11,7 @@ model BridgeEscrow {
   id        String        @id @db.Char(21)
   tokenId   String        @db.Char(21)
   networkId String        @db.Char(21)
-  address   String        @db.Char(42)
+  address   String
   bridgeId  String        @db.Char(21)
   bridge    Bridge        @relation(fields: [bridgeId], references: [id])
   network   Network       @relation(fields: [networkId], references: [id])
@@ -31,8 +31,8 @@ model Deployment {
   txHash        String?   @db.Char(66)
   blockNumber   Int?
   timestamp     DateTime? @db.Timestamp(6)
-  from          String?   @db.Char(42)
-  to            String?   @db.Char(42)
+  from          String?
+  to            String?
   isDeployerEoa Boolean?
 }
 
@@ -48,7 +48,7 @@ model Network {
   chainId              Int
   name                 String         @db.VarChar(256)
   coingeckoId          String?        @db.VarChar(256)
-  axelarGatewayAddress String?        @db.Char(42)
+  axelarGatewayAddress String?
   bridgeEscrows        BridgeEscrow[]
   rpcs                 NetworkRpc[]
   tokens               Token[]
@@ -65,14 +65,14 @@ model TokenBridge {
   escrow        BridgeEscrow @relation(fields: [escrowId], references: [id])
 }
 
-model TokenMetadata {
+model TokenMeta {
   id           String  @id @db.Char(21)
   tokenId      String  @db.Char(21)
   token        Token   @relation(fields: [tokenId], references: [id])
   externalId   String? @db.VarChar(256)
   source       String  @db.VarChar(256)
   name         String? @db.VarChar(256)
-  symbol       String? @db.VarChar(16)
+  symbol       String? @db.VarChar(32)
   decimals     Int?
   logoUrl      String? @db.VarChar(256)
   contractName String? @db.VarChar(256)
@@ -81,14 +81,14 @@ model TokenMetadata {
 }
 
 model Token {
-  id          String          @id @db.Char(21)
-  networkId   String          @db.Char(21)
-  network     Network         @relation(fields: [networkId], references: [id])
-  address     String          @db.Char(42)
+  id          String        @id @db.Char(21)
+  networkId   String        @db.Char(21)
+  network     Network       @relation(fields: [networkId], references: [id])
+  address     String
   deployment  Deployment?
-  metadata    TokenMetadata[]
-  bridgedTo   TokenBridge[]   @relation("bridgedTo")
-  bridgedFrom TokenBridge?    @relation("bridgedFrom")
+  metadata    TokenMeta[]
+  bridgedTo   TokenBridge[] @relation("bridgedTo")
+  bridgedFrom TokenBridge?  @relation("bridgedFrom")
 
   @@unique([networkId, address])
 }
