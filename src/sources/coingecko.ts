@@ -6,7 +6,7 @@ import { zodFetch } from '../utils/zod-fetch.js'
 import { tokenMetadatasTable, tokensTable } from '../db/schema.js'
 import { networksRepository } from '../db/repository/networks.js'
 import { tokensRepository } from '../db/repository/tokens.js'
-import { tokenMetadataRepository } from '../db/repository/tokenMetadata.js'
+import { tokenMetadataRepository } from '../db/repository/token-metadata.js'
 import { Source } from './source.js'
 
 export const syncCoingecko: Source = async ({ logger }) => {
