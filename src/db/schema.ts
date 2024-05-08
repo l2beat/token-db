@@ -5,6 +5,7 @@ import {
   pgEnum,
   pgTable,
   timestamp,
+  uniqueIndex,
   varchar,
 } from 'drizzle-orm/pg-core'
 
@@ -33,22 +34,45 @@ export const networkRpcsTable = pgTable('network_rpcs', {
   // TODO: limits
 })
 
-export const tokensTable = pgTable('tokens', {
-  id: nanoid('id').primaryKey(),
-  networkId: nanoid('network_id').references(() => networksTable.id),
-  address: ethereumAddress('address'),
-})
+export const tokensTable = pgTable(
+  'tokens',
+  {
+    id: nanoid('id').primaryKey(),
+    networkId: nanoid('network_id')
+      .notNull()
+      .references(() => networksTable.id),
+    address: ethereumAddress('address').notNull(),
+  },
+  (self) => ({
+    uniqueNetworkAddress: uniqueIndex('unique_network_address').on(
+      self.networkId,
+      self.address,
+    ),
+  }),
+)
 
-export const tokenMetadatasTable = pgTable('token_metadatas', {
-  id: nanoid('id').primaryKey(),
-  tokenId: nanoid('token_id').references(() => tokensTable.id),
-  source: sourceEnum('source'),
-  name: varchar('name', { length: 256 }),
-  symbol: varchar('symbol', { length: 16 }),
-  decimals: integer('decimals'),
-  logoUrl: varchar('logo_url', { length: 256 }),
-  contractName: varchar('contract_name', { length: 256 }),
-})
+export const tokenMetadatasTable = pgTable(
+  'token_metadatas',
+  {
+    id: nanoid('id').primaryKey(),
+    tokenId: nanoid('token_id')
+      .notNull()
+      .references(() => tokensTable.id),
+    externalId: varchar('external_id', { length: 256 }).notNull(),
+    source: sourceEnum('source').notNull(),
+    name: varchar('name', { length: 256 }),
+    symbol: varchar('symbol', { length: 16 }),
+    decimals: integer('decimals'),
+    logoUrl: varchar('logo_url', { length: 256 }),
+    contractName: varchar('contract_name', { length: 256 }),
+  },
+  (self) => ({
+    uniqueSourceExternalId: uniqueIndex('unique_source_external_id').on(
+      self.source,
+      self.externalId,
+    ),
+  }),
+)
 
 export const deploymentsTable = pgTable('deployments', {
   id: nanoid('id').primaryKey(),
