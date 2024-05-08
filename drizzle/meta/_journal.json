@@ -15,6 +15,20 @@
       "when": 1715094889024,
       "tag": "0001_aberrant_martin_li",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1715156376505,
+      "tag": "0002_premium_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1715168977244,
+      "tag": "0003_clever_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }
