@@ -59,7 +59,11 @@ const pipeline = [
 ]
 
 for (const step of pipeline) {
-  await step()
+  try {
+    await step()
+  } catch (e) {
+    logger.error('Failed to run step', { error: e })
+  }
 }
 
 await stop()

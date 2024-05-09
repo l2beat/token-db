@@ -63,14 +63,14 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
       const sourceToken = definition.chain_aliases[definition.native_chain]
 
       if (!sourceToken) {
-        logger.warn('Native chain alias not found, skipping token', {
+        logger.debug('Native chain alias not found, skipping token', {
           sourceNetwork: definition.native_chain,
           token: definition.id,
         })
         continue
       }
 
-      logger.info('Processing token', {
+      logger.debug('Processing token', {
         sourceNetwork: definition.native_chain,
         token: definition.id,
       })
@@ -85,7 +85,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
       )
 
       if (!sourceNetwork) {
-        logger.warn('Source network not found, skipping token', {
+        logger.debug('Source network not found, skipping token', {
           sourceNetwork: definition.native_chain,
           token: definition.id,
         })
@@ -155,7 +155,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         const network = networks.find((n) => n.axelarId && n.axelarId === chain)
 
         if (!network) {
-          logger.warn('Target network not found, skipping token', {
+          logger.debug('Target network not found, skipping token', {
             sourceNetwork: definition.native_chain,
             targetNetwork: chain,
             token: definition.id,
@@ -223,6 +223,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         })
       }
     }
+    logger.info('Finished processing')
   }
 }
 
