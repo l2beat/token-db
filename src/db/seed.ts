@@ -1,8 +1,9 @@
 import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
 import { env } from '../env.js'
-import { PrismaClient, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
+import { createPrismaClient } from './prisma.js'
 
 const networksResponseSchema = z.array(
   z.object({
@@ -24,29 +25,16 @@ async function seed() {
     networksResponseSchema,
   )
 
-  const seenNetworks: Record<string, (typeof networks)[number]> = {}
-
-  await db.network.createMany({
+  await db.network.upsertMany({
     data: networks
       .filter((n) => n.chain_identifier !== null)
-      .filter((n) => {
-        const seen = seenNetworks[n.id]
-        seenNetworks[n.id] = n
-        if (seen) {
-          console.log('⚠️ Duplicate network id returned from CoinGecko: ', n.id)
-          console.log({
-            old: seen,
-            new: n,
-          })
-        }
-        return !seen
-      })
       .map((network) => ({
         id: nanoid(),
         coingeckoId: network.id,
         name: network.name,
         chainId: network.chain_identifier!,
       })),
+    conflictPaths: ['coingeckoId'],
   })
 
   const axelarConsts = {
@@ -115,7 +103,7 @@ async function resetDb() {
   console.log('Database emptied ✅')
 }
 
-const db = new PrismaClient()
+const db = createPrismaClient()
 
 await resetDb()
 await seed()
