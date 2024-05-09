@@ -23,11 +23,10 @@ const lists = [
     tag: 'MYCRYPTO',
     url: 'https://uniswap.mycryptoapi.com/',
   },
-  // Breaks do-update-set double-insert ;(((
-  // {
-  //   tag: 'SUPERCHAIN',
-  //   url: 'https://static.optimism.io/optimism.tokenlist.json',
-  // },
+  {
+    tag: 'SUPERCHAIN',
+    url: 'https://static.optimism.io/optimism.tokenlist.json',
+  },
 ]
 
 const tokenListSources = lists.map(({ tag, url }) =>

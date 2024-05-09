@@ -11,7 +11,7 @@
     "build:1-generate": "prisma generate",
     "build:2-compile": "tsc",
     "clean": "rm -rf build",
-    "dev": "prisma generate && tsx --no-warnings=ExperimentalWarning --watch src/main.ts",
+    "dev": "prisma generate > /dev/null && tsx --no-warnings=ExperimentalWarning --watch src/main.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx src/db/seed.ts",
