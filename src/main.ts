@@ -5,6 +5,7 @@ import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
 
 import { createPrismaClient } from './db/prisma.js'
+import { buildAxelarConfigSource } from './sources/axelar-config.js'
 
 const db = createPrismaClient()
 
@@ -48,7 +49,10 @@ const axelarGatewaySource = buildAxelarGatewaySource({
   db,
 })
 
-const pipeline = [coingeckoSource, ...tokenListSources, axelarGatewaySource]
+const axelarConfigSource = buildAxelarConfigSource({ logger, db })
+
+// const pipeline = [coingeckoSource, ...tokenListSources, axelarGatewaySource]
+const pipeline = [axelarConfigSource]
 
 for (const step of pipeline) {
   await step()
