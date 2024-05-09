@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model BridgeEscrow {
+  id        String        @id @db.Char(21)
+  tokenId   String        @db.Char(21)
+  networkId String        @db.Char(21)
+  address   String
+  bridgeId  String        @db.Char(21)
+  bridge    Bridge        @relation(fields: [bridgeId], references: [id])
+  network   Network       @relation(fields: [networkId], references: [id])
+  tokens    TokenBridge[]
+}
+
+model Bridge {
+  id      String         @id @db.Char(21)
+  name    String         @db.VarChar(256)
+  escrows BridgeEscrow[]
+}
+
+model Deployment {
+  id            String    @id @db.Char(21)
+  tokenId       String    @unique
+  token         Token     @relation(fields: [tokenId], references: [id])
+  txHash        String?   @db.Char(66)
+  blockNumber   Int?
+  timestamp     DateTime? @db.Timestamp(6)
+  from          String?
+  to            String?
+  isDeployerEoa Boolean?
+}
+
+model NetworkRpc {
+  id        String  @id @db.Char(21)
+  networkId String  @db.Char(21)
+  network   Network @relation(fields: [networkId], references: [id])
+  url       String
+}
+
+model Network {
+  id                   String         @id @db.Char(21)
+  chainId              Int
+  name                 String         @db.VarChar(256)
+  coingeckoId          String?        @db.VarChar(256)
+  axelarGatewayAddress String?
+  bridgeEscrows        BridgeEscrow[]
+  rpcs                 NetworkRpc[]
+  tokens               Token[]
+}
+
+model TokenBridge {
+  id            String       @id @db.Char(21)
+  tokenId       String       @unique @db.Char(21)
+  sourceTokenId String       @db.Char(21)
+  sourceToken   Token        @relation("bridgedTo", fields: [sourceTokenId], references: [id])
+  targetTokenId String       @unique @db.Char(21)
+  targetToken   Token        @relation("bridgedFrom", fields: [targetTokenId], references: [id])
+  escrowId      String       @db.Char(21)
+  escrow        BridgeEscrow @relation(fields: [escrowId], references: [id])
+}
+
+model TokenMeta {
+  id           String  @id @db.Char(21)
+  tokenId      String  @db.Char(21)
+  token        Token   @relation(fields: [tokenId], references: [id])
+  externalId   String? @db.VarChar(256)
+  source       String  @db.VarChar(256)
+  name         String? @db.VarChar(256)
+  symbol       String? @db.VarChar(32)
+  decimals     Int?
+  logoUrl      String? @db.VarChar(256)
+  contractName String? @db.VarChar(256)
+
+  @@unique([tokenId, source])
+}
+
+model Token {
+  id          String        @id @db.Char(21)
+  networkId   String        @db.Char(21)
+  network     Network       @relation(fields: [networkId], references: [id])
+  address     String
+  deployment  Deployment?
+  metadata    TokenMeta[]
+  bridgedTo   TokenBridge[] @relation("bridgedTo")
+  bridgedFrom TokenBridge?  @relation("bridgedFrom")
+
+  @@unique([networkId, address])
+}

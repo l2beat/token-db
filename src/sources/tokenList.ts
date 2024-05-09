@@ -1,9 +1,8 @@
-import { Logger, assert } from '@l2beat/backend-tools'
+import { Logger } from '@l2beat/backend-tools'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
-import { NetworksRepository } from '../db/repository/networks.js'
-import { TokensRepository } from '../db/repository/tokens.js'
-import { TokenMetadataRepository } from '../db/repository/token-metadata.js'
+import { nanoid } from 'nanoid'
+import { PrismaClient } from '../db/prisma.js'
 
 export { buildTokenListSource }
 
@@ -11,22 +10,18 @@ type Dependencies = {
   url: string
   tag: string
   logger: Logger
-  repositories: {
-    networks: NetworksRepository
-    tokens: TokensRepository
-    meta: TokenMetadataRepository
-  }
+  db: PrismaClient
 }
 
-function buildTokenListSource($: Dependencies) {
-  const logger = $.logger.for('TokenListSource').tag(`${$.tag}`)
+function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
+  logger = logger.for('TokenListSource').tag(`${tag}`)
 
   return async function () {
-    const result = await zodFetch($.url, TokenList)
+    const result = await zodFetch(url, TokenList)
 
     logger.info('Token list fetched', { count: result.tokens.length })
 
-    const networks = await $.repositories.networks.findAll()
+    const networks = await db.network.findMany()
 
     const tokensToInsert = result.tokens.flatMap((token) => {
       const chain = networks.find((n) => n.chainId === token.chainId)
@@ -48,7 +43,7 @@ function buildTokenListSource($: Dependencies) {
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
-        source: `TOKEN_LIST_${$.tag}`,
+        source: `TOKEN_LIST_${tag}`,
         logoUrl: token.logoURI,
       }
 
@@ -62,28 +57,34 @@ function buildTokenListSource($: Dependencies) {
 
     logger.info('Inserting tokens', { count: tokensToInsert.length })
 
-    const upsertResult = await $.repositories.tokens.upsertAndFindMany(
-      tokensToInsert.map((t) => t.token),
-    )
-
-    const metadataToUpsert = tokensToInsert.map((tti) => {
-      const upsertToken = upsertResult.find(
-        (uToken) =>
-          uToken.address === tti.token.address &&
-          uToken.networkId === tti.token.networkId,
-      )
-
-      assert(upsertToken, 'Expected token to be upserted')
-
-      return {
-        ...tti.meta,
-        tokenId: upsertToken.id,
-      }
+    await db.token.upsertMany({
+      data: tokensToInsert.map(({ token }) => ({
+        id: nanoid(),
+        ...token,
+      })),
+      conflictPaths: ['networkId', 'address'],
     })
 
-    logger.info('Inserting metadata', { count: metadataToUpsert.length })
+    const tokenIds = await db.token.findMany({
+      select: { id: true, networkId: true, address: true },
+      where: {
+        OR: tokensToInsert.map(({ token }) => ({
+          networkId: token.networkId,
+          address: token.address,
+        })),
+      },
+    })
 
-    await $.repositories.meta.upsertMany(metadataToUpsert)
+    await db.tokenMeta.upsertMany({
+      data: tokensToInsert.map(({ token, meta }) => ({
+        id: nanoid(),
+        tokenId: tokenIds.find(
+          (t) => t.networkId === token.networkId && t.address === token.address,
+        )!.id,
+        ...meta,
+      })),
+      conflictPaths: ['tokenId', 'source'],
+    })
 
     logger.info('Token list processed')
   }
