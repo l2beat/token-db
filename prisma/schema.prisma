@@ -24,6 +24,7 @@ model Bridge {
   name    String         @unique @db.VarChar(256)
   tokens  TokenBridge[]
   escrows BridgeEscrow[]
+
 }
 
 model Deployment {
@@ -48,6 +49,19 @@ model NetworkRpc {
   networkId String  @db.Char(21)
   network   Network @relation(fields: [networkId], references: [id])
   url       String
+
+}
+
+model NetworkExplorer {
+  id        String       @id @db.Char(21)
+  networkId String       @db.Char(21)
+  network   Network      @relation(fields: [networkId], references: [id])
+  type      ExplorerType
+  url       String
+  apiKey    String
+
+  @@unique(networkId)
+  @@unique([networkId, type])
 }
 
 model NetworkExplorer {
@@ -75,6 +89,7 @@ model Network {
   rpcs                 NetworkRpc[]
   explorer             NetworkExplorer?
   tokens               Token[]
+
 }
 
 model TokenBridge {
