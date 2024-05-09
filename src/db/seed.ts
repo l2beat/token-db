@@ -4,6 +4,8 @@ import { env } from '../env.js'
 import { Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
 import { createPrismaClient } from './prisma.js'
+import * as viemChains from 'viem/chains'
+import { notUndefined } from '../utils/notUndefined.js'
 
 const networksResponseSchema = z.array(
   z.object({
@@ -35,6 +37,32 @@ async function seed() {
         chainId: network.chain_identifier!,
       })),
     conflictPaths: ['coingeckoId'],
+  })
+
+  const allNetworks = await db.network.findMany()
+  const chains = Object.values(viemChains) as viemChains.Chain[]
+
+  await db.networkRpc.createMany({
+    data: allNetworks
+      .map((network) => {
+        let rpcUrl: string | undefined =
+          process.env[
+            network.name.toUpperCase().split(' ').join('_') + '_RPC_URL'
+          ]
+        if (!rpcUrl) {
+          const chain = chains.find((c) => c.id === network.chainId)
+          rpcUrl = chain?.rpcUrls.default.http[0]
+          if (!rpcUrl) {
+            return undefined
+          }
+        }
+        return {
+          id: nanoid(),
+          networkId: network.id,
+          url: rpcUrl,
+        }
+      })
+      .filter(notUndefined),
   })
 
   const axelarConsts = {
