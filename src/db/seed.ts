@@ -145,6 +145,44 @@ async function seed() {
   )
 
   console.log(`Database seeded with ${desiredNetworks.length} networks ✅`)
+  await db.networkExplorer.createMany({
+    data: allNetworks
+      .map((network) => {
+        const networkSlug = network.name
+          .toLowerCase()
+          .replace(' ', '-')
+          .toUpperCase()
+        const explorerUrl = process.env[`${networkSlug}_EXPLORER_URL`]
+        const explorerApiKey = process.env[`${networkSlug}_EXPLORER_API_KEY`]
+        const explorerType = process.env[`${networkSlug}_EXPLORER_TYPE`]
+
+        if (!explorerUrl || !explorerApiKey || !explorerType) {
+          return
+        }
+
+        if (!isExplorerType(explorerType)) {
+          throw new Error(`Invalid explorer type: ${explorerType}`)
+        }
+
+        console.log(
+          'Added explorer for',
+          network.name,
+          'with type',
+          explorerType,
+        )
+
+        return {
+          id: nanoid(),
+          networkId: network.id,
+          url: explorerUrl,
+          apiKey: explorerApiKey,
+          type: explorerType,
+        }
+      })
+      .filter(notUndefined),
+  })
+
+  console.log(`Database seeded with ${networks.length} networks ✅`)
 }
 
 async function resetDb() {

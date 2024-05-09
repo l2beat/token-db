@@ -24,6 +24,7 @@ model Bridge {
   name    String         @db.VarChar(256) @unique
   tokens  TokenBridge[]
   escrows BridgeEscrow[]
+
 }
 
 model Deployment {
@@ -36,6 +37,11 @@ model Deployment {
   from          String?
   to            String?
   isDeployerEoa Boolean?
+
+}
+
+enum ExplorerType {
+  ETHERSCAN
 }
 
 model NetworkRpc {
@@ -43,10 +49,23 @@ model NetworkRpc {
   networkId String  @db.Char(21)
   network   Network @relation(fields: [networkId], references: [id])
   url       String
+
+}
+
+model NetworkExplorer {
+  id        String       @id @db.Char(21)
+  networkId String       @db.Char(21)
+  network   Network      @relation(fields: [networkId], references: [id])
+  type      ExplorerType
+  url       String
+  apiKey    String
+
+  @@unique(networkId)
+  @@unique([networkId, type])
 }
 
 model Network {
-  id                   String         @id @db.Char(21)
+  id                   String           @id @db.Char(21)
   chainId              Int
   name                 String         @db.VarChar(256)
   coingeckoId          String?        @unique @db.VarChar(256)
@@ -55,7 +74,9 @@ model Network {
   wormholeId           String?        @db.VarChar(256)
   bridgeEscrows        BridgeEscrow[]
   rpcs                 NetworkRpc[]
+  explorer             NetworkExplorer?
   tokens               Token[]
+
 }
 
 model TokenBridge {
