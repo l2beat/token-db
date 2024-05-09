@@ -24,8 +24,18 @@ async function seed() {
     networksResponseSchema,
   )
 
+  const seenNetworks: Record<string, (typeof networks)[number]> = {}
+
   await db.network.createMany({
     data: networks
+      .filter((n) => {
+        const seen = seenNetworks[n.id]
+        seenNetworks[n.id] = n
+        if (seen) {
+          console.log('⚠️ Duplicate network id returned from CoinGecko: ', n.id)
+        }
+        return !seen
+      })
       .filter((n) => n.chain_identifier !== null)
       .map((network) => ({
         id: nanoid(),
@@ -46,27 +56,27 @@ async function seed() {
     },
     'optimistic-ethereum': {
       axelarId: 'optimism',
-      axelarGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     },
     avalanche: {
       axelarId: 'avalanche',
-      axelarGateway: '0x5029C0EFf6C34351a0CEc334542cDb22c7928f78',
+      axelarGatewayAddress: '0x5029C0EFf6C34351a0CEc334542cDb22c7928f78',
     },
     base: {
       axelarId: 'base',
-      axelarGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     },
     'polygon-pos': {
       axelarId: 'polygon',
-      axelarGateway: '0x6f015F16De9fC8791b234eF68D486d2bF203FBA8',
+      axelarGatewayAddress: '0x6f015F16De9fC8791b234eF68D486d2bF203FBA8',
     },
     celo: {
       axelarId: 'celo',
-      axelarGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     },
     linea: {
       axelarId: 'linea',
-      axelarGateway: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     },
   } as const
 
