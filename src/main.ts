@@ -51,8 +51,12 @@ const axelarGatewaySource = buildAxelarGatewaySource({
 
 const axelarConfigSource = buildAxelarConfigSource({ logger, db })
 
-// const pipeline = [coingeckoSource, ...tokenListSources, axelarGatewaySource]
-const pipeline = [axelarConfigSource]
+const pipeline = [
+  coingeckoSource,
+  ...tokenListSources,
+  axelarGatewaySource,
+  axelarConfigSource,
+]
 
 for (const step of pipeline) {
   await step()
