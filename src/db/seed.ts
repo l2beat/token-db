@@ -28,15 +28,19 @@ async function seed() {
 
   await db.network.createMany({
     data: networks
+      .filter((n) => n.chain_identifier !== null)
       .filter((n) => {
         const seen = seenNetworks[n.id]
         seenNetworks[n.id] = n
         if (seen) {
           console.log('⚠️ Duplicate network id returned from CoinGecko: ', n.id)
+          console.log({
+            old: seen,
+            new: n,
+          })
         }
         return !seen
       })
-      .filter((n) => n.chain_identifier !== null)
       .map((network) => ({
         id: nanoid(),
         coingeckoId: network.id,
