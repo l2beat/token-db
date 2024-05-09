@@ -8,19 +8,20 @@ datasource db {
 }
 
 model BridgeEscrow {
-  id        String        @id @db.Char(21)
-  tokenId   String        @db.Char(21)
-  networkId String        @db.Char(21)
+  id        String  @id @db.Char(21)
+  tokenId   String  @db.Char(21)
+  networkId String  @db.Char(21)
   address   String
-  bridgeId  String        @db.Char(21)
-  bridge    Bridge        @relation(fields: [bridgeId], references: [id])
-  network   Network       @relation(fields: [networkId], references: [id])
-  tokens    TokenBridge[]
+  bridgeId  String  @db.Char(21)
+  bridge    Bridge  @relation(fields: [bridgeId], references: [id])
+  network   Network @relation(fields: [networkId], references: [id])
+  tokens    Token[]
 }
 
 model Bridge {
   id      String         @id @db.Char(21)
   name    String         @db.VarChar(256)
+  tokens  TokenBridge[]
   escrows BridgeEscrow[]
 }
 
@@ -48,21 +49,22 @@ model Network {
   chainId              Int
   name                 String         @db.VarChar(256)
   coingeckoId          String?        @db.VarChar(256)
-  axelarGatewayAddress String?
+  axelarId             String?        @db.VarChar(256)
+  axelarGatewayAddress String?        @db.Char(42)
   bridgeEscrows        BridgeEscrow[]
   rpcs                 NetworkRpc[]
   tokens               Token[]
 }
 
 model TokenBridge {
-  id            String       @id @db.Char(21)
-  tokenId       String       @unique @db.Char(21)
-  sourceTokenId String       @db.Char(21)
-  sourceToken   Token        @relation("bridgedTo", fields: [sourceTokenId], references: [id])
-  targetTokenId String       @unique @db.Char(21)
-  targetToken   Token        @relation("bridgedFrom", fields: [targetTokenId], references: [id])
-  escrowId      String       @db.Char(21)
-  escrow        BridgeEscrow @relation(fields: [escrowId], references: [id])
+  id            String @id @db.Char(21)
+  tokenId       String @unique @db.Char(21)
+  sourceTokenId String @db.Char(21)
+  sourceToken   Token  @relation("bridgedTo", fields: [sourceTokenId], references: [id])
+  targetTokenId String @unique @db.Char(21)
+  targetToken   Token  @relation("bridgedFrom", fields: [targetTokenId], references: [id])
+  bridgeId      String @db.Char(21)
+  bridge        Bridge @relation(fields: [bridgeId], references: [id])
 }
 
 model TokenMeta {
@@ -81,14 +83,15 @@ model TokenMeta {
 }
 
 model Token {
-  id          String        @id @db.Char(21)
-  networkId   String        @db.Char(21)
-  network     Network       @relation(fields: [networkId], references: [id])
+  id          String         @id @db.Char(21)
+  networkId   String         @db.Char(21)
+  network     Network        @relation(fields: [networkId], references: [id])
   address     String
   deployment  Deployment?
   metadata    TokenMeta[]
-  bridgedTo   TokenBridge[] @relation("bridgedTo")
-  bridgedFrom TokenBridge?  @relation("bridgedFrom")
+  bridgedTo   TokenBridge[]  @relation("bridgedTo")
+  bridgedFrom TokenBridge?   @relation("bridgedFrom")
+  escrows     BridgeEscrow[]
 
   @@unique([networkId, address])
 }
