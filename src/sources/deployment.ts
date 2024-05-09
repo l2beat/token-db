@@ -17,6 +17,8 @@ type Dependencies = {
   db: PrismaClient
 }
 
+type PlainDeployment = Omit<Deployment, 'tokenId' | 'id'>
+
 function buildDeploymentSource({ logger, db }: Dependencies) {
   logger = logger.for('DeploymentSource')
 
@@ -56,7 +58,9 @@ function buildDeploymentSource({ logger, db }: Dependencies) {
 
     for (const chainId of supportedChainIds) {
       logger.info(`Getting deployments for chain ${chainId}`)
-      const cache = new Cache<Deployment>(`deployments-cache-${chainId}.json`)
+      const cache = new Cache<PlainDeployment>(
+        `deployments-cache-${chainId}.json`,
+      )
 
       const explorer = explorerMap.get(chainId)!
       const publicClient = clientMap.get(chainId)!
@@ -76,11 +80,18 @@ function buildDeploymentSource({ logger, db }: Dependencies) {
         `Getting deployments for ${tokens.length} tokens on chain ${chainId}`,
       )
 
-      for (let i = 0; i < tokens.slice(0, 100).length; i++) {
+      for (let i = 0; i < tokens.length; i++) {
         logger.info(`Getting deployment for token ${i + 1}/${tokens.length}`)
-        const { deployment } = await getCachedDeploymentFn(tokens[i]!)
 
-        tokenDeployments.push(deployment)
+        const token = tokens[i]!
+
+        const { deployment } = await getCachedDeploymentFn(token)
+
+        tokenDeployments.push({
+          ...deployment,
+          tokenId: token.id,
+          id: nanoid(),
+        })
       }
     }
 
@@ -95,28 +106,28 @@ function buildDeploymentSource({ logger, db }: Dependencies) {
 
     logger.info('Deployments processed')
   }
+}
 
-  function getCachedDeployment(
-    cache: Cache<Deployment>,
-    explorer: NetworkExplorerClient,
-    publicClient: PublicClient,
-    logger: Logger,
-  ) {
-    return async function (token: Token) {
-      const cached = cache.get(token.address as `0x${string}`)
-      if (cached) {
-        return { deployment: fromCache(cached), isCached: true }
-      }
-      while (true) {
-        try {
-          const deployment = await getDeployment(explorer, publicClient)(token)
+function getCachedDeployment(
+  cache: Cache<PlainDeployment>,
+  explorer: NetworkExplorerClient,
+  publicClient: PublicClient,
+  logger: Logger,
+) {
+  return async function (token: Token) {
+    const cached = cache.get(token.address as `0x${string}`)
+    if (cached) {
+      return { deployment: fromCache(cached), isCached: true }
+    }
+    while (true) {
+      try {
+        const deployment = await getDeployment(explorer, publicClient)(token)
 
-          cache.set(token.address, deployment)
-          return { deployment, isCached: false }
-        } catch (e) {
-          logger.error('Failed to get deployment', e)
-          await setTimeout(5_000)
-        }
+        cache.set(token.address, deployment)
+        return { deployment, isCached: false }
+      } catch (e) {
+        logger.error('Failed to get deployment', e)
+        await setTimeout(5_000)
       }
     }
   }
@@ -133,8 +144,6 @@ function getDeployment(
 
     if (deployment?.txHash.startsWith('GENESIS')) {
       return {
-        id: nanoid(),
-        tokenId: token.id,
         txHash: deployment.txHash,
         blockNumber: null,
         timestamp: null,
@@ -155,16 +164,10 @@ function getDeployment(
         blockNumber: tx.blockNumber,
       }))
 
-    const timestamp = block ? new Date(Number(block.timestamp) * 1000) : null
-
-    console.dir({ timestamp })
-
     return {
-      id: nanoid(),
-      tokenId: token.id,
       isDeployerEoa: deployment ? true : false,
       txHash: deployment?.txHash ?? null,
-      timestamp,
+      timestamp: block ? new Date(Number(block.timestamp) * 1000) : null,
       blockNumber: tx ? Number(tx.blockNumber) : null,
       from: (tx?.from as string) ?? null,
       to: (tx?.from as string) ?? null,
@@ -172,7 +175,7 @@ function getDeployment(
   }
 }
 
-function fromCache(dep: Deployment): Deployment {
+function fromCache(dep: PlainDeployment): PlainDeployment {
   return {
     ...dep,
     timestamp: dep.timestamp ? new Date(dep.timestamp) : null,
