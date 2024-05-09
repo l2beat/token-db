@@ -26,7 +26,7 @@ function buildDeploymentSource({ logger, db }: Dependencies) {
     const networksWithExplorer = await db.network.findMany({
       include: { explorer: true, rpcs: true },
       where: {
-        AND: [{ explorer: { isNot: null } }],
+        explorer: { isNot: null },
       },
     })
 
@@ -57,7 +57,8 @@ function buildDeploymentSource({ logger, db }: Dependencies) {
     const tokenDeployments: Deployment[] = []
 
     for (const chainId of supportedChainIds) {
-      logger.info(`Getting deployments for chain ${chainId}`)
+      logger = logger.for(`Chain#${chainId}`)
+      logger.info(`Getting deployments for chain`)
       const cache = new Cache<PlainDeployment>(
         `deployments-cache-${chainId}.json`,
       )
