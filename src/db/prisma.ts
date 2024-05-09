@@ -9,6 +9,7 @@ export const createPrismaClient = () =>
       ? ['warn', 'error']
       : ['query', 'info', 'warn', 'error'],
   }).$extends({
+    // This is an extension which hacks in upsertMany for Prisma
     model: {
       $allModels: {
         // https://github.com/prisma/prisma/issues/4134
@@ -43,6 +44,7 @@ export const createPrismaClient = () =>
 
           const tableArg = Prisma.raw(`"${model.dbName || model.name}"`)
 
+          // We don't want to upsert createdAt, nor generated or relation fields
           const writeableFields = model.fields.filter(
             (field) =>
               !['createdAt'].includes(field.name) &&
@@ -58,6 +60,7 @@ export const createPrismaClient = () =>
             conflictPaths.map((c) => `"${String(c)}"`).join(','),
           )
 
+          // Apart from the conflict paths, we want to update all columns except id (should make this configurable though)
           const updateColumns = columns.filter(
             (c) => !conflictPaths.includes(c) && c !== 'id',
           )
@@ -65,13 +68,22 @@ export const createPrismaClient = () =>
             updateColumns.map((c) => `"${c}" = EXCLUDED."${c}"`).join(','),
           )
 
+          // We chunk the upserts to:
+          // - avoid hitting the max prepared statement values limit
+          // - avoid two upserts with the same conflict key in the same query (would result in a failed query)
           const chunked = chunkUpsert<Prisma.Args<T, 'createMany'>['data']>(
             data,
             (elem) => JSON.stringify(pick(elem, conflictPaths)),
+            // This is the chunk size (works for now, but should be calculated based on the number of columns and the max prepared statement values limit)
             500,
           )
 
           let count = 0
+
+          // NOTE: we're running the queries sequentially WITHOUT a transaction,
+          // so if one fails, the previous ones will still be committed. The problems are:
+          // 1/ Prisma doesn't let us run nested transactions, so creating a new one might not work
+          // 2/ it takes a lot of time to run a transaction so the timeout and lock time would have to be huge
 
           for (const chunk of chunked) {
             const values = (chunk as any[]).map(
@@ -107,6 +119,7 @@ export const createPrismaClient = () =>
             }
           }
 
+          // We return the number of upserted rows
           return count
         },
       },
