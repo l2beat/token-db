@@ -21,10 +21,9 @@ model BridgeEscrow {
 
 model Bridge {
   id      String         @id @db.Char(21)
-  name    String         @db.VarChar(256) @unique
+  name    String         @unique @db.VarChar(256)
   tokens  TokenBridge[]
   escrows BridgeEscrow[]
-
 }
 
 model Deployment {
@@ -37,7 +36,6 @@ model Deployment {
   from          String?
   to            String?
   isDeployerEoa Boolean?
-
 }
 
 enum ExplorerType {
@@ -49,7 +47,6 @@ model NetworkRpc {
   networkId String  @db.Char(21)
   network   Network @relation(fields: [networkId], references: [id])
   url       String
-
 }
 
 model NetworkExplorer {
@@ -76,7 +73,6 @@ model Network {
   rpcs                 NetworkRpc[]
   explorer             NetworkExplorer?
   tokens               Token[]
-
 }
 
 model TokenBridge {
