@@ -1,11 +1,44 @@
-import { zodFetch } from '../utils/zod-fetch.js'
+import { Prisma } from '@prisma/client'
+import intersectionWith from 'lodash/intersectionWith.js'
+import { nanoid } from 'nanoid'
+import {
+  arbitrum,
+  base,
+  blast,
+  linea,
+  mainnet,
+  manta,
+  mantle,
+  metis,
+  mode,
+  optimism,
+  polygonZkEvm,
+  scroll,
+  zkSync,
+  zora,
+} from 'viem/chains'
 import { z } from 'zod'
 import { env } from '../env.js'
-import { Prisma } from '@prisma/client'
-import { nanoid } from 'nanoid'
-import * as viemChains from 'viem/chains'
 import { notUndefined } from '../utils/notUndefined.js'
+import { zodFetch } from '../utils/zod-fetch.js'
 import { createPrismaClient } from './prisma.js'
+
+export const chainsConfig = [
+  arbitrum,
+  mainnet,
+  optimism,
+  base,
+  blast,
+  mantle,
+  zkSync,
+  manta,
+  linea,
+  mode,
+  metis,
+  scroll,
+  polygonZkEvm,
+  zora,
+]
 
 const networksResponseSchema = z.array(
   z.object({
@@ -27,8 +60,14 @@ async function seed() {
     networksResponseSchema,
   )
 
+  const desiredNetworks = intersectionWith(
+    networks,
+    chainsConfig,
+    ({ chain_identifier }, { id }) => id === chain_identifier,
+  )
+
   await db.network.upsertMany({
-    data: networks
+    data: desiredNetworks
       .filter((n) => n.chain_identifier !== null)
       .map((network) => ({
         id: nanoid(),
@@ -40,7 +79,6 @@ async function seed() {
   })
 
   const allNetworks = await db.network.findMany()
-  const chains = Object.values(viemChains) as viemChains.Chain[]
 
   await db.networkRpc.createMany({
     data: allNetworks
@@ -50,7 +88,7 @@ async function seed() {
             network.name.toUpperCase().split(' ').join('_') + '_RPC_URL'
           ]
         if (!rpcUrl) {
-          const chain = chains.find((c) => c.id === network.chainId)
+          const chain = chainsConfig.find((c) => c.id === network.chainId)
           rpcUrl = chain?.rpcUrls.default.http[0]
           if (!rpcUrl) {
             return undefined
@@ -78,20 +116,8 @@ async function seed() {
       axelarId: 'optimism',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     },
-    avalanche: {
-      axelarId: 'avalanche',
-      axelarGatewayAddress: '0x5029C0EFf6C34351a0CEc334542cDb22c7928f78',
-    },
     base: {
       axelarId: 'base',
-      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
-    },
-    'polygon-pos': {
-      axelarId: 'polygon',
-      axelarGatewayAddress: '0x6f015F16De9fC8791b234eF68D486d2bF203FBA8',
-    },
-    celo: {
-      axelarId: 'celo',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
     },
     linea: {
@@ -113,7 +139,7 @@ async function seed() {
     ),
   )
 
-  console.log(`Database seeded with ${networks.length} networks ✅`)
+  console.log(`Database seeded with ${desiredNetworks.length} networks ✅`)
 }
 
 async function resetDb() {

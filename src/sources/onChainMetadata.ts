@@ -28,6 +28,7 @@ function buildOnChainMetadataSource({
   logger = logger.for('onChainMetadata').tag(networkConfig.name)
 
   return async function () {
+    logger.info(`Syncing tokens metadata on ${networkConfig.name}...`)
     const tokens = await db.token.findMany({
       where: {
         metadata: {
@@ -89,6 +90,8 @@ function buildOnChainMetadataSource({
       })),
       conflictPaths: ['tokenId', 'source'],
     })
-    logger.info(`Synced ${addedTokensMetadata} tokens metadata`)
+    logger.info(
+      `Synced ${addedTokensMetadata} tokens metadata on ${networkConfig.name}`,
+    )
   }
 }
