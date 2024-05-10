@@ -67,7 +67,7 @@ function buildDeploymentSource(
       const explorer = explorerMap.get(chainId)!
       const publicClient = clientMap.get(chainId)!
 
-      const getDeployment = getDeploymentWithRetries(
+      const getDeployment = getDeploymentDataWithRetries(
         explorer,
         publicClient,
         logger,
@@ -116,7 +116,7 @@ function buildDeploymentSource(
   }
 }
 
-function getDeploymentWithRetries(
+function getDeploymentDataWithRetries(
   explorer: NetworkExplorerClient,
   publicClient: PublicClient,
   logger: Logger,
@@ -124,7 +124,7 @@ function getDeploymentWithRetries(
   return async function (token: Token) {
     while (true) {
       try {
-        return await getDeployment(explorer, publicClient)(token)
+        return await getDeploymentData(explorer, publicClient)(token)
       } catch (e) {
         logger.error('Failed to get deployment', e)
         await setTimeout(5_000)
@@ -133,7 +133,7 @@ function getDeploymentWithRetries(
   }
 }
 
-function getDeployment(
+function getDeploymentData(
   explorer: NetworkExplorerClient,
   publicClient: PublicClient,
 ) {
