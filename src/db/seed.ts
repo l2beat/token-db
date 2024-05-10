@@ -23,6 +23,7 @@ import { isExplorerType } from '../utils/isExplorerType.js'
 import { notUndefined } from '../utils/notUndefined.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { createPrismaClient } from './prisma.js'
+import { isExplorerType } from '../utils/isExplorerType.js'
 
 export const chainsConfig = [
   arbitrum,
