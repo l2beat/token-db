@@ -1,8 +1,9 @@
 import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
 import { env } from '../env.js'
-import { PrismaClient, Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
+import { createPrismaClient } from './prisma.js'
 import * as viemChains from 'viem/chains'
 import { notUndefined } from '../utils/notUndefined.js'
 
@@ -26,7 +27,7 @@ async function seed() {
     networksResponseSchema,
   )
 
-  await db.network.createMany({
+  await db.network.upsertMany({
     data: networks
       .filter((n) => n.chain_identifier !== null)
       .map((network) => ({
@@ -35,6 +36,7 @@ async function seed() {
         name: network.name,
         chainId: network.chain_identifier!,
       })),
+    conflictPaths: ['coingeckoId'],
   })
 
   const allNetworks = await db.network.findMany()
@@ -63,6 +65,54 @@ async function seed() {
       .filter(notUndefined),
   })
 
+  const axelarConsts = {
+    ethereum: {
+      axelarGatewayAddress: '0x4F4495243837681061C4743b74B3eEdf548D56A5',
+      axelarId: 'ethereum',
+    },
+    'arbitrum-one': {
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      axelarId: 'arbitrum',
+    },
+    'optimistic-ethereum': {
+      axelarId: 'optimism',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+    },
+    avalanche: {
+      axelarId: 'avalanche',
+      axelarGatewayAddress: '0x5029C0EFf6C34351a0CEc334542cDb22c7928f78',
+    },
+    base: {
+      axelarId: 'base',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+    },
+    'polygon-pos': {
+      axelarId: 'polygon',
+      axelarGatewayAddress: '0x6f015F16De9fC8791b234eF68D486d2bF203FBA8',
+    },
+    celo: {
+      axelarId: 'celo',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+    },
+    linea: {
+      axelarId: 'linea',
+      axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+    },
+  } as const
+
+  await db.$transaction(
+    Object.entries(axelarConsts).map(([coingeckoId, consts]) =>
+      db.network.update({
+        where: {
+          coingeckoId,
+        },
+        data: {
+          ...consts,
+        },
+      }),
+    ),
+  )
+
   console.log(`Database seeded with ${networks.length} networks ✅`)
 }
 
@@ -81,7 +131,7 @@ async function resetDb() {
   console.log('Database emptied ✅')
 }
 
-const db = new PrismaClient()
+const db = createPrismaClient()
 
 await resetDb()
 await seed()
