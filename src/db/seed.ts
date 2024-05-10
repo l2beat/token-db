@@ -183,8 +183,6 @@ async function seed() {
       })
       .filter(notUndefined),
   })
-
-  console.log(`Database seeded with ${networks.length} networks ✅`)
 }
 
 async function resetDb() {
