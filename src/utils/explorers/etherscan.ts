@@ -33,6 +33,7 @@ function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
     if (response.message !== 'OK') {
       throw new Error(`Unexpected response: ${response.message}`)
     }
+    // biome-ignore lint/style/noNonNullAssertion: enforced by zod
     return GetContractCreationResult.parse(response.result)[0]!
   }
 
