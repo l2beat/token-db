@@ -1,7 +1,6 @@
 import { Logger } from '@l2beat/backend-tools'
 import { PrismaClient } from '../db/prisma.js'
-import { Deployment, Token } from '@prisma/client'
-import { Cache } from '../utils/cache.js'
+import { Token } from '@prisma/client'
 import {
   NetworkExplorerClient,
   instantiateExplorer,
@@ -17,9 +16,17 @@ type Dependencies = {
   db: PrismaClient
 }
 
-type PlainDeployment = Omit<Deployment, 'tokenId' | 'id'>
+type Options = {
+  /**
+   * If true, the source will fetch the data for all tokens from scratch.
+   */
+  flush: boolean
+}
 
-function buildDeploymentSource({ logger, db }: Dependencies) {
+function buildDeploymentSource(
+  { logger, db }: Dependencies,
+  { flush }: Options = { flush: false },
+) {
   logger = logger.for('DeploymentSource')
 
   return async function () {
@@ -50,82 +57,74 @@ function buildDeploymentSource({ logger, db }: Dependencies) {
       runStacks.map(({ chainId, client }) => [chainId, client]),
     )
 
-    const supportedChainIds = chainsToRunOn.map((chain) => chain.chainId)
+    logger.info(`Running on chains`, {
+      chains: chainsToRunOn.map((c) => c.name),
+    })
 
-    logger.info(`Running on chains ${supportedChainIds.join(', ')}`)
-
-    const tokenDeployments: Deployment[] = []
-
-    for (const chainId of supportedChainIds) {
-      logger = logger.for(`Chain#${chainId}`)
-      logger.info(`Getting deployments for chain`)
-      const cache = new Cache<PlainDeployment>(
-        `deployments-cache-${chainId}.json`,
-      )
+    for (const { chainId, name } of chainsToRunOn) {
+      logger = logger.tag(`${name}`)
 
       const explorer = explorerMap.get(chainId)!
       const publicClient = clientMap.get(chainId)!
 
-      const getCachedDeploymentFn = getCachedDeployment(
-        cache,
+      const getDeployment = getDeploymentWithRetries(
         explorer,
         publicClient,
         logger,
       )
 
+      const whereClause = flush
+        ? { network: { chainId } }
+        : { AND: { network: { chainId }, deployment: { is: null } } }
+
       const tokens = await db.token.findMany({
-        where: { network: { chainId: chainId } },
+        where: whereClause,
       })
 
-      logger.info(
-        `Getting deployments for ${tokens.length} tokens on chain ${chainId}`,
-      )
+      logger.info(`Getting deployments for tokens`, {
+        count: tokens.length,
+      })
 
       for (let i = 0; i < tokens.length; i++) {
-        logger.info(`Getting deployment for token ${i + 1}/${tokens.length}`)
+        logger.info(`Getting deployment for token`, {
+          current: i + 1,
+          total: tokens.length,
+        })
 
         const token = tokens[i]!
 
-        const { deployment } = await getCachedDeploymentFn(token)
+        const deployment = await getDeployment(token)
 
-        tokenDeployments.push({
-          ...deployment,
-          tokenId: token.id,
-          id: nanoid(),
+        const id = nanoid()
+
+        await db.deployment.upsert({
+          where: { tokenId: token.id },
+          create: {
+            id,
+            tokenId: token.id,
+            ...deployment,
+          },
+          update: {
+            id,
+            ...deployment,
+          },
         })
       }
     }
-
-    logger.info('Inserting deployments into database', {
-      count: tokenDeployments.length,
-    })
-
-    await db.deployment.upsertMany({
-      data: tokenDeployments,
-      conflictPaths: ['tokenId'],
-    })
 
     logger.info('Deployments processed')
   }
 }
 
-function getCachedDeployment(
-  cache: Cache<PlainDeployment>,
+function getDeploymentWithRetries(
   explorer: NetworkExplorerClient,
   publicClient: PublicClient,
   logger: Logger,
 ) {
   return async function (token: Token) {
-    const cached = cache.get(token.address as `0x${string}`)
-    if (cached) {
-      return { deployment: fromCache(cached), isCached: true }
-    }
     while (true) {
       try {
-        const deployment = await getDeployment(explorer, publicClient)(token)
-
-        cache.set(token.address, deployment)
-        return { deployment, isCached: false }
+        return await getDeployment(explorer, publicClient)(token)
       } catch (e) {
         logger.error('Failed to get deployment', e)
         await setTimeout(5_000)
@@ -171,14 +170,7 @@ function getDeployment(
       timestamp: block ? new Date(Number(block.timestamp) * 1000) : null,
       blockNumber: tx ? Number(tx.blockNumber) : null,
       from: (tx?.from as string) ?? null,
-      to: (tx?.from as string) ?? null,
+      to: (tx?.to as string) ?? null,
     }
-  }
-}
-
-function fromCache(dep: PlainDeployment): PlainDeployment {
-  return {
-    ...dep,
-    timestamp: dep.timestamp ? new Date(dep.timestamp) : null,
   }
 }
