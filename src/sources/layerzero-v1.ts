@@ -101,7 +101,7 @@ function buildLayerZeroV1Source({ db, logger }: Dependencies) {
         hash: deploymentInfo.txHash as `0x${string}`,
       })
 
-      const fromAddresses = []
+      const fromAddresses = new Set<string>()
       const fromBlock = Number(transaction.blockNumber)
       const toBlock = Number(blockNumber)
       const batchSize = 10_000
@@ -124,22 +124,21 @@ function buildLayerZeroV1Source({ db, logger }: Dependencies) {
         )
 
         // reduce memory footprint by only storing the from address
-        fromAddresses.push(...fetchedInternalTxs.map((f) => f.from))
+        fetchedInternalTxs.forEach((ftx) => fromAddresses.add(ftx.from))
       }
 
-      const addressMap = countByAddress(fromAddresses)
-      logger.info('addresses fetched', { count: addressMap.size })
+      logger.info('Addresses fetched', { count: fromAddresses.size })
 
       const ercAddresses: string[] = []
 
       logger.info('Filtering ERC20 addresses')
 
       let idx = 1
-      for (const [address] of addressMap.entries()) {
+      for (const address of Array.from(fromAddresses)) {
         logger.info('Pulling ABI', {
           address,
           current: idx++,
-          total: addressMap.size,
+          total: fromAddresses.size,
         })
 
         const source = await explorer.getContractSource(
@@ -181,18 +180,4 @@ function buildLayerZeroV1Source({ db, logger }: Dependencies) {
       // TODO: Resolve OFT target chain if possible and assign it as a token bridge
     }
   }
-}
-
-function countByAddress(from: string[]) {
-  const interactions = new Map<string, number>()
-  from.map((f) => {
-    const current = interactions.get(f)
-    if (current === undefined) {
-      interactions.set(f, 1)
-    } else {
-      interactions.set(f, current + 1)
-    }
-  })
-
-  return interactions
 }
