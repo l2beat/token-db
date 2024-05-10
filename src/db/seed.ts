@@ -22,6 +22,7 @@ import { env } from '../env.js'
 import { notUndefined } from '../utils/notUndefined.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { createPrismaClient } from './prisma.js'
+import { isExplorerType } from '../utils/isExplorerType.js'
 
 export const chainsConfig = [
   arbitrum,
@@ -73,6 +74,7 @@ async function seed() {
         id: nanoid(),
         coingeckoId: network.id,
         name: network.name,
+        // biome-ignore lint/style/noNonNullAssertion: checked above
         chainId: network.chain_identifier!,
       })),
     conflictPaths: ['coingeckoId'],
