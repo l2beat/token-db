@@ -7,6 +7,7 @@ import { buildTokenListSource } from './sources/tokenList.js'
 import { createPrismaClient } from './db/prisma.js'
 import { getNetworksConfig } from './utils/getNetworksConfig.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
+import { buildAxelarConfigSource } from './sources/axelar-config.js'
 
 const db = createPrismaClient()
 
@@ -30,11 +31,10 @@ const lists = [
     tag: 'MYCRYPTO',
     url: 'https://uniswap.mycryptoapi.com/',
   },
-  // Breaks do-update-set double-insert ;(((
-  // {
-  //   tag: 'SUPERCHAIN',
-  //   url: 'https://static.optimism.io/optimism.tokenlist.json',
-  // },
+  {
+    tag: 'SUPERCHAIN',
+    url: 'https://static.optimism.io/optimism.tokenlist.json',
+  },
 ]
 
 const tokenListSources = lists.map(({ tag, url }) =>
@@ -63,16 +63,22 @@ const onChainMetadataSources = networksConfig.map((networkConfig) =>
     networkConfig,
   }),
 )
+const axelarConfigSource = buildAxelarConfigSource({ logger, db })
 
 const pipeline = [
   coingeckoSource,
   ...tokenListSources,
   axelarGatewaySource,
   ...onChainMetadataSources,
+  axelarConfigSource,
 ]
 
 for (const step of pipeline) {
-  await step()
+  try {
+    await step()
+  } catch (e) {
+    logger.error('Failed to run step', { error: e })
+  }
 }
 
 await stop()

@@ -9,6 +9,11 @@ const schema = z.object({
     .string()
     .optional()
     .transform((v) => v === 'true' || v === '1'),
+  AXELAR_CONFIG_URL: z
+    .string()
+    .default(
+      'https://axelar-mainnet.s3.us-east-2.amazonaws.com/mainnet-asset-config.json',
+    ),
 })
 
 export const env = (() => {
