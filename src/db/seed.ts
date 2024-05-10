@@ -148,6 +148,28 @@ async function seed() {
     ),
   )
 
+  const layerZeroV1Consts = {
+    // More can be added depending on how many networks we want to support
+    ethereum: '0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675',
+    'arbitrum-one': '0x3c2269811836af69497E5F486A85D7316753cf62',
+    'optimistic-ethereum': '0x3c2269811836af69497E5F486A85D7316753cf62',
+    base: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+    linea: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+  }
+
+  await db.$transaction(
+    Object.entries(layerZeroV1Consts).map(([coingeckoId, endpointAddress]) =>
+      db.network.update({
+        where: {
+          coingeckoId,
+        },
+        data: {
+          layerZeroV1EndpointAddress: endpointAddress,
+        },
+      }),
+    ),
+  )
+
   console.log(`Database seeded with ${desiredNetworks.length} networks ✅`)
   await db.networkExplorer.createMany({
     data: allNetworks
