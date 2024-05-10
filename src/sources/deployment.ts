@@ -43,9 +43,10 @@ function buildDeploymentSource(
 
     const runStacks = chainsToRunOn.map((ctr) => ({
       chainId: ctr.chainId,
+      // biome-ignore lint/style/noNonNullAssertion: I love prisma types mumbojubmo
       explorer: instantiateExplorer(ctr.explorer!),
       client: createPublicClient({
-        transport: http(ctr.rpcs[0]!.url),
+        transport: http(ctr.rpcs[0]?.url),
       }),
     }))
 
@@ -64,7 +65,9 @@ function buildDeploymentSource(
     for (const { chainId, name } of chainsToRunOn) {
       logger = logger.tag(`${name}`)
 
+      // biome-ignore lint/style/noNonNullAssertion: part of run stacks
       const explorer = explorerMap.get(chainId)!
+      // biome-ignore lint/style/noNonNullAssertion: part of run stacks
       const publicClient = clientMap.get(chainId)!
 
       const getDeployment = getDeploymentDataWithRetries(
@@ -85,13 +88,11 @@ function buildDeploymentSource(
         count: tokens.length,
       })
 
-      for (let i = 0; i < tokens.length; i++) {
+      for (const [i, token] of tokens.entries()) {
         logger.info(`Getting deployment for token`, {
           current: i + 1,
           total: tokens.length,
         })
-
-        const token = tokens[i]!
 
         const deployment = await getDeployment(token)
 

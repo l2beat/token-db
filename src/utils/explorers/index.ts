@@ -1,4 +1,4 @@
-import { ExplorerType, NetworkExplorer, Prisma } from '@prisma/client'
+import { ExplorerType, NetworkExplorer } from '@prisma/client'
 import { buildEtherscanExplorer } from './etherscan.js'
 
 export { instantiateExplorer }
