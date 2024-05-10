@@ -3,9 +3,9 @@ import { z } from 'zod'
 import { env } from '../env.js'
 import { Prisma } from '@prisma/client'
 import { nanoid } from 'nanoid'
-import { createPrismaClient } from './prisma.js'
 import * as viemChains from 'viem/chains'
 import { notUndefined } from '../utils/notUndefined.js'
+import { createPrismaClient } from './prisma.js'
 
 const networksResponseSchema = z.array(
   z.object({

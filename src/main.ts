@@ -1,15 +1,22 @@
 import { Logger } from '@l2beat/backend-tools'
 
-import { buildTokenListSource } from './sources/tokenList.js'
-import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
+import { buildCoingeckoSource } from './sources/coingecko.js'
+import { buildTokenListSource } from './sources/tokenList.js'
 
 import { createPrismaClient } from './db/prisma.js'
+import { getNetworksConfig } from './utils/getNetworksConfig.js'
+import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
 
 const db = createPrismaClient()
 
 const logger = new Logger({ format: 'pretty', colors: true })
+
+const networksConfig = await getNetworksConfig({
+  db,
+  logger,
+})
 
 const lists = [
   {
@@ -49,12 +56,20 @@ const axelarGatewaySource = buildAxelarGatewaySource({
   db,
 })
 
+const onChainMetadataSources = networksConfig.map((networkConfig) =>
+  buildOnChainMetadataSource({
+    logger,
+    db,
+    networkConfig,
+  }),
+)
 const axelarConfigSource = buildAxelarConfigSource({ logger, db })
 
 const pipeline = [
   coingeckoSource,
   ...tokenListSources,
   axelarGatewaySource,
+  ...onChainMetadataSources,
   axelarConfigSource,
 ]
 
