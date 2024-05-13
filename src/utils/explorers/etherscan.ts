@@ -37,8 +37,24 @@ function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
     return GetContractCreationResult.parse(response.result)[0]!
   }
 
+  async function getContractSource(address: `0x${string}`) {
+    const response = await call('contract', 'getsourcecode', { address })
+    if (response.message === 'No data found') {
+      return undefined
+    }
+    if (response.message !== 'OK') {
+      if (response.result === 'Contract source code not verified') {
+        return undefined
+      }
+      throw new Error(`Unexpected response: ${response.message}`)
+    }
+    // biome-ignore lint/style/noNonNullAssertion: enforced by zod
+    return GetSourceCodeResult.parse(response.result)[0]!
+  }
+
   return {
     getContractDeployment,
+    getContractSource,
   }
 }
 
@@ -60,3 +76,22 @@ export const ContractCreatorAndCreationTxHash = z.object({
 export const GetContractCreationResult = z
   .array(ContractCreatorAndCreationTxHash)
   .length(1)
+
+export type ContractSource = z.infer<typeof ContractSource>
+export const ContractSource = z.object({
+  SourceCode: z.string(),
+  ABI: z.string(),
+  ContractName: z.string(),
+  CompilerVersion: z.string(),
+  OptimizationUsed: z.string(),
+  Runs: z.string(),
+  ConstructorArguments: z.string(),
+  EVMVersion: z.string(),
+  Library: z.string(),
+  LicenseType: z.string(),
+  Proxy: z.string(),
+  Implementation: z.string(),
+  SwarmSource: z.string(),
+})
+
+export const GetSourceCodeResult = z.array(ContractSource).length(1)
