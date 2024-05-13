@@ -4,6 +4,7 @@ import { nanoid } from 'nanoid'
 import { getContract, parseAbiItem } from 'viem'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
+import { notUndefined } from '../utils/notUndefined.js'
 
 export { buildArbitrumCanonicalSource }
 
@@ -61,12 +62,25 @@ function buildArbitrumCanonicalSource({
         deployment: {
           OR: [
             {
-              from: L2_ERC20_GATEWAY,
+              to: {
+                equals: L2_ERC20_GATEWAY,
+                mode: 'insensitive',
+              },
             },
             {
-              from: ARB_RETRYABLE_TX,
+              to: {
+                equals: ARB_RETRYABLE_TX,
+                mode: 'insensitive',
+              },
             },
           ],
+        },
+        metadata: {
+          every: {
+            contractName: {
+              equals: 'ClonableBeaconProxy',
+            },
+          },
         },
         network: {
           id: arbitrumNetwork.id,
@@ -74,6 +88,7 @@ function buildArbitrumCanonicalSource({
       },
     })
 
+    logger.info('Matching L2 tokens with L1 addresses...')
     const tokensBridgeToUpsert = await Promise.all(
       tokens.map(async (token) => {
         const contract = getContract({
@@ -88,10 +103,15 @@ function buildArbitrumCanonicalSource({
             network: {
               name: 'Ethereum',
             },
-            address: l1Address,
+            address: {
+              equals: l1Address,
+              mode: 'insensitive',
+            },
           },
         })
-        assert(l1Token, 'L1 token not found')
+        if (!l1Token) {
+          return
+        }
 
         return {
           sourceTokenId: l1Token.id,
@@ -101,8 +121,10 @@ function buildArbitrumCanonicalSource({
     )
 
     await db.tokenBridge.upsertMany({
-      data: tokensBridgeToUpsert.map((t) => ({ id: nanoid(), ...t, bridgeId })),
-      conflictPaths: ['bridgeId', 'sourceTokenId', 'targetTokenId'],
+      data: tokensBridgeToUpsert
+        .filter(notUndefined)
+        .map((t) => ({ id: nanoid(), ...t, bridgeId })),
+      conflictPaths: ['bridgeId', 'targetTokenId'],
     })
 
     logger.info(`Synced Arbitrum canonical tokens data...`)

@@ -5,11 +5,12 @@ import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildTokenListSource } from './sources/tokenList.js'
 
 import { createPrismaClient } from './db/prisma.js'
-import { getNetworksConfig } from './utils/getNetworksConfig.js'
-import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
+import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
+import { buildDeploymentSource } from './sources/deployment.js'
+import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildWormholeSource } from './sources/wormhole.js'
-import { buildDeploymentSource, withExplorer } from './sources/deployment.js'
+import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 
 const db = createPrismaClient()
 
@@ -78,6 +79,11 @@ const deploymentSources = networksConfig
       networkConfig,
     }),
   )
+const arbitrumCanonicalSource = buildArbitrumCanonicalSource({
+  logger,
+  db,
+  networksConfig,
+})
 
 const pipeline = [
   coingeckoSource,
@@ -87,6 +93,9 @@ const pipeline = [
   axelarConfigSource,
   wormholeSource,
   ...deploymentSources,
+
+  // has to be after deployment sources
+  arbitrumCanonicalSource,
 ]
 
 for (const step of pipeline) {
