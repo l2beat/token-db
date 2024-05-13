@@ -11,6 +11,7 @@ const schema = z.object({
     .transform((v) => v === 'true' || v === '1'),
   AXELAR_CONFIG_URL: z
     .string()
+    .url()
     .default(
       'https://axelar-mainnet.s3.us-east-2.amazonaws.com/mainnet-asset-config.json',
     ),
@@ -18,6 +19,12 @@ const schema = z.object({
     .string()
     .url()
     .default('https://bridge.orbitchain.io/open/v1/api/tokenList3'),
+  WORMHOLE_LIST_URL: z
+    .string()
+    .url()
+    .default(
+      'https://raw.githubusercontent.com/wormhole-foundation/wormhole-token-list/main/content/by_source.csv',
+    ),
 })
 
 export const env = (() => {

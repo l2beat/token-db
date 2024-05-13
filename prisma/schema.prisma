@@ -53,6 +53,7 @@ model Network {
   axelarId             String?        @db.VarChar(256)
   axelarGatewayAddress String?        @db.Char(42)
   orbitId              String?        @db.VarChar(256)
+  wormholeId           String?        @db.VarChar(256)
   bridgeEscrows        BridgeEscrow[]
   rpcs                 NetworkRpc[]
   tokens               Token[]
