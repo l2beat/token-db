@@ -3,6 +3,10 @@ import { http, PublicClient, createPublicClient } from 'viem'
 import * as viemChains from 'viem/chains'
 import { PrismaClient } from '../db/prisma.js'
 import { notUndefined } from './notUndefined.js'
+import {
+  NetworkExplorerClient,
+  instantiateExplorer,
+} from './explorers/index.js'
 
 type Dependencies = {
   logger: Logger
@@ -10,9 +14,10 @@ type Dependencies = {
 }
 
 export type NetworkConfig = {
+  name: string
   chainId: number
   publicClient: PublicClient
-  name: string
+  explorerClient?: NetworkExplorerClient
 }
 
 export async function getNetworksConfig({
@@ -24,6 +29,7 @@ export async function getNetworksConfig({
   const networks = await db.network.findMany({
     include: {
       rpcs: true,
+      explorer: true,
     },
   })
 
@@ -33,9 +39,15 @@ export async function getNetworksConfig({
     .filter((network) => network.rpcs[0]?.url)
     .map((network) => {
       const chain = chains.find((c) => c.id === network.chainId)
+
       if (!chain) {
         return
       }
+
+      const explorerClient = network.explorer
+        ? instantiateExplorer(network.explorer)
+        : undefined
+
       return {
         name: network.name,
         chainId: network.chainId,
@@ -49,7 +61,18 @@ export async function getNetworksConfig({
             multicall: true,
           },
         }),
+        explorerClient,
       }
     })
     .filter(notUndefined)
+}
+
+export type WithExplorer<T extends NetworkConfig> = T & {
+  explorerClient: NetworkExplorerClient
+}
+
+export function withExplorer(
+  config: NetworkConfig,
+): config is WithExplorer<NetworkConfig> {
+  return !!config.explorerClient
 }

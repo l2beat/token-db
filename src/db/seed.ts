@@ -22,6 +22,7 @@ import { env } from '../env.js'
 import { notUndefined } from '../utils/notUndefined.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { createPrismaClient } from './prisma.js'
+import { isExplorerType } from '../utils/isExplorerType.js'
 
 export const chainsConfig = [
   arbitrum,
@@ -73,6 +74,7 @@ async function seed() {
         id: nanoid(),
         coingeckoId: network.id,
         name: network.name,
+        // biome-ignore lint/style/noNonNullAssertion: checked above
         chainId: network.chain_identifier!,
       })),
     conflictPaths: ['coingeckoId'],
@@ -145,6 +147,42 @@ async function seed() {
   )
 
   console.log(`Database seeded with ${desiredNetworks.length} networks ✅`)
+  await db.networkExplorer.createMany({
+    data: allNetworks
+      .map((network) => {
+        const networkSlug = network.name
+          .toLowerCase()
+          .replace(' ', '-')
+          .toUpperCase()
+        const explorerUrl = process.env[`${networkSlug}_EXPLORER_URL`]
+        const explorerApiKey = process.env[`${networkSlug}_EXPLORER_API_KEY`]
+        const explorerType = process.env[`${networkSlug}_EXPLORER_TYPE`]
+
+        if (!explorerUrl || !explorerApiKey || !explorerType) {
+          return
+        }
+
+        if (!isExplorerType(explorerType)) {
+          throw new Error(`Invalid explorer type: ${explorerType}`)
+        }
+
+        console.log(
+          'Added explorer for',
+          network.name,
+          'with type',
+          explorerType,
+        )
+
+        return {
+          id: nanoid(),
+          networkId: network.id,
+          url: explorerUrl,
+          apiKey: explorerApiKey,
+          type: explorerType,
+        }
+      })
+      .filter(notUndefined),
+  })
 }
 
 async function resetDb() {
