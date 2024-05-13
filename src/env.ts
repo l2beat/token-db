@@ -14,6 +14,10 @@ const schema = z.object({
     .default(
       'https://axelar-mainnet.s3.us-east-2.amazonaws.com/mainnet-asset-config.json',
     ),
+  ORBIT_LIST_URL: z
+    .string()
+    .url()
+    .default('https://bridge.orbitchain.io/open/v1/api/tokenList3'),
 })
 
 export const env = (() => {

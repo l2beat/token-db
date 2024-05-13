@@ -52,6 +52,7 @@ model Network {
   coingeckoId          String?        @unique @db.VarChar(256)
   axelarId             String?        @db.VarChar(256)
   axelarGatewayAddress String?        @db.Char(42)
+  orbitId              String?        @db.VarChar(256)
   bridgeEscrows        BridgeEscrow[]
   rpcs                 NetworkRpc[]
   tokens               Token[]
