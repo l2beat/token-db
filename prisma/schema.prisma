@@ -63,19 +63,19 @@ model NetworkExplorer {
 }
 
 model Network {
-  id                   String           @id @db.Char(21)
-  chainId              Int
-  name                 String         @db.VarChar(256)
-  coingeckoId          String?        @unique @db.VarChar(256)
-  axelarId             String?        @db.VarChar(256)
-  axelarGatewayAddress String?        @db.Char(42)
-  orbitId              String?        @db.VarChar(256)
-  wormholeId           String?        @db.VarChar(256)
+  id                         String           @id @db.Char(21)
+  chainId                    Int
+  name                       String           @db.VarChar(256)
+  coingeckoId                String?          @unique @db.VarChar(256)
+  axelarId                   String?          @db.VarChar(256)
+  axelarGatewayAddress       String?          @db.Char(42)
+  orbitId                    String?          @db.VarChar(256)
+  wormholeId                 String?          @db.VarChar(256)
   layerZeroV1EndpointAddress String?          @db.Char(42)
-  bridgeEscrows        BridgeEscrow[]
-  rpcs                 NetworkRpc[]
-  explorer             NetworkExplorer?
-  tokens               Token[]
+  bridgeEscrows              BridgeEscrow[]
+  rpcs                       NetworkRpc[]
+  explorer                   NetworkExplorer?
+  tokens                     Token[]
 }
 
 model TokenBridge {
