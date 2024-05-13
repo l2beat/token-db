@@ -66,3 +66,13 @@ export async function getNetworksConfig({
     })
     .filter(notUndefined)
 }
+
+export type WithExplorer<T extends NetworkConfig> = T & {
+  explorerClient: NetworkExplorerClient
+}
+
+export function withExplorer(
+  config: NetworkConfig,
+): config is WithExplorer<NetworkConfig> {
+  return !!config.explorerClient
+}

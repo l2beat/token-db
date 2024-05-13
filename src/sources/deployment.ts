@@ -5,17 +5,7 @@ import { NetworkExplorerClient } from '../utils/explorers/index.js'
 import { setTimeout } from 'timers/promises'
 import { PublicClient } from 'viem'
 import { nanoid } from 'nanoid'
-import { NetworkConfig } from '../utils/getNetworksConfig.js'
-
-export { buildDeploymentSource, withExplorer }
-
-type WithExplorer<T> = T & { explorerClient: NetworkExplorerClient }
-
-function withExplorer(
-  config: NetworkConfig,
-): config is WithExplorer<NetworkConfig> {
-  return !!config.explorerClient
-}
+import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
 
 type Dependencies = {
   logger: Logger
@@ -30,7 +20,7 @@ type Options = {
   flush: boolean
 }
 
-function buildDeploymentSource(
+export function buildDeploymentSource(
   { logger, db, networkConfig }: Dependencies,
   { flush }: Options = { flush: false },
 ) {
