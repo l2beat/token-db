@@ -2,8 +2,12 @@ import { getAddress } from 'viem'
 import { z } from 'zod'
 import { SourceContext } from './source.js'
 import { env } from '../env.js'
+import { assert } from '@l2beat/backend-tools'
+import { nanoid } from 'nanoid'
 
 export function buildOrbitSource({ logger, db }: SourceContext) {
+  logger = logger.for('OrbitSource')
+
   return async () => {
     const networks = await db.network
       .findMany({
@@ -11,18 +15,18 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
           rpcs: true,
         },
         where: {
-          wormholeId: {
+          orbitId: {
             not: null,
           },
         },
       })
       .then((result) =>
         result.map((r) => {
-          const { wormholeId } = r
-          assert(wormholeId, 'Expected wormholeId')
+          const { orbitId } = r
+          assert(orbitId, 'Expected orbitId')
           return {
             ...r,
-            wormholeId,
+            orbitId,
           }
         }),
       )
@@ -31,67 +35,141 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
     const data = await res.json()
     const parsed = OrbitResult.parse(data)
 
+    logger.info('Upserting bridge info')
+
+    const { id: bridgeId } = await db.bridge.upsert({
+      select: { id: true },
+      where: {
+        name: 'Orbit',
+      },
+      create: {
+        id: nanoid(),
+        name: 'Orbit',
+      },
+      update: {},
+    })
+
     for (const token of parsed.tokenList) {
-      const sourceChain = this.chains.find(
+      const sourceNetwork = networks.find(
         (chain) => chain.orbitId && chain.orbitId === token.chain,
       )
-      let mainListing: TokenListing | undefined
-      if (sourceChain) {
-        mainListing = {
-          address: Address(
-            `${sourceChain.prefix}:${getAddress(token.address)}`,
-          ),
-          chain: { name: sourceChain.name, id: sourceChain.id },
-          identifiers: {
-            orbitSymbol: token.symbol,
+
+      if (!sourceNetwork) {
+        logger.warn('No source network found', { chain: token.chain })
+        continue
+      }
+
+      const { id: sourceTokenId } = await db.token.upsert({
+        select: { id: true },
+        where: {
+          networkId_address: {
+            networkId: sourceNetwork.id,
+            address: getAddress(token.address),
           },
-          tags: {
-            orbit: true,
-            orbitSource: true,
+        },
+        create: {
+          id: nanoid(),
+          networkId: sourceNetwork.id,
+          address: getAddress(token.address),
+        },
+        update: {},
+      })
+
+      await db.tokenMeta.upsert({
+        where: {
+          tokenId_source: {
+            tokenId: sourceTokenId,
+            source: 'orbit',
           },
+        },
+        create: {
+          id: nanoid(),
+          tokenId: sourceTokenId,
+          source: 'orbit',
+          externalId: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+        },
+        update: {
+          externalId: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+        },
+      })
+
+      for (const [orbitChain, minters] of Object.entries(token.minters)) {
+        const targetNetwork = networks.find(
+          (chain) => chain.orbitId && chain.orbitId === orbitChain,
+        )
+
+        if (!targetNetwork) {
+          logger.warn('No target network found', { orbitChain })
+          continue
         }
-        for (const [orbitChain, minters] of Object.entries(token.minters)) {
-          const chain = this.chains.find(
-            (chain) => chain.orbitId && chain.orbitId === orbitChain,
-          )
-          if (chain) {
-            for (const minter of minters) {
-              if (minter.asOrigin) {
-                continue
-              }
-              result.push({
-                address: Address(
-                  `${chain.prefix}:${getAddress(minter.address)}`,
-                ),
-                chain: { name: chain.name, id: chain.id },
-                identifiers: {
-                  orbitSymbol: minter.symbol,
-                },
-                tags: {
-                  orbit: true,
-                  orbitDestination: true,
-                },
-                bridge: {
-                  name: 'Orbit',
-                  sourceChain: mainListing.chain,
-                  sourceChainRaw: token.chain,
-                  sourceEscrow:
-                    sourceChain &&
-                    Address(`${sourceChain.prefix}:${getAddress(token.vault)}`),
-                  sourceEscrowRaw: token.vault,
-                  sourceToken: mainListing.address,
-                  sourceTokenRaw: token.address,
-                },
-              })
-            }
+
+        for (const minter of minters) {
+          if (minter.asOrigin) {
+            continue
           }
+
+          const { id: targetTokenId } = await db.token.upsert({
+            select: { id: true },
+            where: {
+              networkId_address: {
+                networkId: targetNetwork.id,
+                address: getAddress(minter.address),
+              },
+            },
+            create: {
+              id: nanoid(),
+              networkId: targetNetwork.id,
+              address: getAddress(token.address),
+            },
+            update: {},
+          })
+
+          await db.tokenMeta.upsert({
+            where: {
+              tokenId_source: {
+                tokenId: targetTokenId,
+                source: 'orbit',
+              },
+            },
+            create: {
+              id: nanoid(),
+              tokenId: sourceTokenId,
+              source: 'orbit',
+              externalId: minter.address,
+              symbol: minter.symbol,
+              decimals: token.decimals,
+            },
+            update: {
+              externalId: token.address,
+              symbol: token.symbol,
+              decimals: token.decimals,
+            },
+          })
+
+          await db.tokenBridge.upsert({
+            where: {
+              bridgeId_targetTokenId: {
+                bridgeId,
+                targetTokenId,
+              },
+            },
+            create: {
+              id: nanoid(),
+              sourceTokenId,
+              targetTokenId,
+              bridgeId,
+            },
+            update: {
+              sourceTokenId,
+            },
+          })
         }
       }
     }
-
-    this.logger.info('Got tokens', { length: result.length })
-
-    return result
   }
 }
 
