@@ -9,6 +9,7 @@ import { z } from 'zod'
  */
 export async function zodFetch<T>(
   input: string | URL | globalThis.Request,
+  // biome-ignore lint/suspicious/noExplicitAny: intentional
   zodSchema: z.ZodType<T, any>,
   init?: RequestInit,
 ): Promise<T> {

@@ -22,6 +22,7 @@ import { env } from '../env.js'
 import { notUndefined } from '../utils/notUndefined.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { createPrismaClient } from './prisma.js'
+import { isExplorerType } from '../utils/isExplorerType.js'
 
 export const chainsConfig = [
   arbitrum,
@@ -73,6 +74,7 @@ async function seed() {
         id: nanoid(),
         coingeckoId: network.id,
         name: network.name,
+        // biome-ignore lint/style/noNonNullAssertion: checked above
         chainId: network.chain_identifier!,
       })),
     conflictPaths: ['coingeckoId'],
@@ -103,31 +105,36 @@ async function seed() {
       .filter(notUndefined),
   })
 
-  const axelarConsts = {
+  const consts = {
     ethereum: {
       axelarGatewayAddress: '0x4F4495243837681061C4743b74B3eEdf548D56A5',
       axelarId: 'ethereum',
+      wormholeId: 'eth',
     },
     'arbitrum-one': {
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       axelarId: 'arbitrum',
+      wormholeId: 'arbitrum',
     },
     'optimistic-ethereum': {
       axelarId: 'optimism',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      wormholeId: 'optimism',
     },
     base: {
       axelarId: 'base',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      wormholeId: 'base',
     },
     linea: {
       axelarId: 'linea',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      wormholeId: 'linea',
     },
   } as const
 
   await db.$transaction(
-    Object.entries(axelarConsts).map(([coingeckoId, consts]) =>
+    Object.entries(consts).map(([coingeckoId, consts]) =>
       db.network.update({
         where: {
           coingeckoId,
@@ -140,6 +147,42 @@ async function seed() {
   )
 
   console.log(`Database seeded with ${desiredNetworks.length} networks ✅`)
+  await db.networkExplorer.createMany({
+    data: allNetworks
+      .map((network) => {
+        const networkSlug = network.name
+          .toLowerCase()
+          .replace(' ', '-')
+          .toUpperCase()
+        const explorerUrl = process.env[`${networkSlug}_EXPLORER_URL`]
+        const explorerApiKey = process.env[`${networkSlug}_EXPLORER_API_KEY`]
+        const explorerType = process.env[`${networkSlug}_EXPLORER_TYPE`]
+
+        if (!explorerUrl || !explorerApiKey || !explorerType) {
+          return
+        }
+
+        if (!isExplorerType(explorerType)) {
+          throw new Error(`Invalid explorer type: ${explorerType}`)
+        }
+
+        console.log(
+          'Added explorer for',
+          network.name,
+          'with type',
+          explorerType,
+        )
+
+        return {
+          id: nanoid(),
+          networkId: network.id,
+          url: explorerUrl,
+          apiKey: explorerApiKey,
+          type: explorerType,
+        }
+      })
+      .filter(notUndefined),
+  })
 }
 
 async function resetDb() {

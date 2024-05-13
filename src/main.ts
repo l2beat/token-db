@@ -8,6 +8,8 @@ import { createPrismaClient } from './db/prisma.js'
 import { getNetworksConfig } from './utils/getNetworksConfig.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
+import { buildWormholeSource } from './sources/wormhole.js'
+import { buildDeploymentSource, withExplorer } from './sources/deployment.js'
 
 const db = createPrismaClient()
 
@@ -65,12 +67,26 @@ const onChainMetadataSources = networksConfig.map((networkConfig) =>
 )
 const axelarConfigSource = buildAxelarConfigSource({ logger, db })
 
+const wormholeSource = buildWormholeSource({ logger, db })
+
+const deploymentSources = networksConfig
+  .filter(withExplorer)
+  .map((networkConfig) =>
+    buildDeploymentSource({
+      logger,
+      db,
+      networkConfig,
+    }),
+  )
+
 const pipeline = [
   coingeckoSource,
   ...tokenListSources,
   axelarGatewaySource,
   ...onChainMetadataSources,
   axelarConfigSource,
+  wormholeSource,
+  ...deploymentSources,
 ]
 
 for (const step of pipeline) {

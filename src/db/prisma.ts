@@ -86,6 +86,7 @@ export const createPrismaClient = () =>
           // 2/ it takes a lot of time to run a transaction so the timeout and lock time would have to be huge
 
           for (const chunk of chunked) {
+            // biome-ignore lint/suspicious/noExplicitAny: intentional
             const values = (chunk as any[]).map(
               (d) =>
                 Prisma.sql`(${Prisma.join(
@@ -106,12 +107,14 @@ export const createPrismaClient = () =>
             )
 
             if (updateColumns.length > 0) {
+              // biome-ignore lint/suspicious/noExplicitAny: intentional
               count += await (context.$parent as any).$executeRaw`
                 INSERT INTO ${tableArg} (${columnsArg})
                 VALUES ${Prisma.join(values)}
                 ON CONFLICT (${conflictArg}) DO UPDATE SET
                   ${updateArg};`
             } else {
+              // biome-ignore lint/suspicious/noExplicitAny: intentional
               count += await (context.$parent as any).$executeRaw`
                 INSERT INTO ${tableArg} (${columnsArg})
                 VALUES ${Prisma.join(values)}
