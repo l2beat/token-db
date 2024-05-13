@@ -66,9 +66,13 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
       }
       for (const [key, value] of Object.entries(token)) {
         if (key.endsWith('Address') && value) {
+          const address = z
+            .string()
+            .transform((arg) => getAddress(arg))
+            .parse(value)
           entry.chains.push({
             chain: key.slice(0, -'Address'.length),
-            address: value,
+            address,
           })
         }
       }
@@ -194,58 +198,14 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
   }
 }
 
-const WormholeToken = z.object({
-  source: z.string(),
-  symbol: z.string(),
-  name: z.string(),
-  sourceAddress: z.string(),
-  sourceDecimals: z.string(),
-  coingeckoId: z.string(),
-  logo: z.string(),
-  solAddress: z.string(),
-  solDecimals: z.string(),
-  ethAddress: z.string(),
-  ethDecimals: z.string(),
-  bscAddress: z.string(),
-  bscDecimals: z.string(),
-  terraAddress: z.string(),
-  terraDecimals: z.string(),
-  maticAddress: z.string(),
-  maticDecimals: z.string(),
-  avaxAddress: z.string(),
-  avaxDecimals: z.string(),
-  oasisAddress: z.string(),
-  oasisDecimals: z.string(),
-  algorandAddress: z.string(),
-  algorandDecimals: z.string(),
-  ftmAddress: z.string(),
-  ftmDecimals: z.string(),
-  auroraAddress: z.string(),
-  auroraDecimals: z.string(),
-  karuraAddress: z.string(),
-  karuraDecimals: z.string(),
-  acalaAddress: z.string(),
-  acalaDecimals: z.string(),
-  klaytnAddress: z.string(),
-  klaytnDecimals: z.string(),
-  celoAddress: z.string(),
-  celoDecimals: z.string(),
-  nearAddress: z.string(),
-  nearDecimals: z.string(),
-  moonbeamAddress: z.string(),
-  moonbeamDecimals: z.string(),
-  terra2Address: z.string(),
-  terra2Decimals: z.string(),
-  injectiveAddress: z.string(),
-  injectiveDecimals: z.string(),
-  xplaAddress: z.string(),
-  xplaDecimals: z.string(),
-  optimismAddress: z.string(),
-  optimismDecimals: z.string(),
-  arbitrumAddress: z.string(),
-  arbitrumDecimals: z.string(),
-  aptosAddress: z.string(),
-  aptosDecimals: z.string(),
-  baseAddress: z.string(),
-  baseDecimals: z.string(),
-})
+const WormholeToken = z
+  .object({
+    source: z.string(),
+    symbol: z.string(),
+    name: z.string(),
+    sourceAddress: z.string(),
+    sourceDecimals: z.string(),
+    coingeckoId: z.string(),
+    logo: z.string(),
+  })
+  .passthrough()
