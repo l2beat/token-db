@@ -9,6 +9,8 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
   logger = logger.for('OrbitSource')
 
   return async () => {
+    logger.info(`Fetching tokens from Orbit...`)
+
     const networks = await db.network
       .findMany({
         include: {
@@ -49,15 +51,27 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
       update: {},
     })
 
+    let count = 0
+    const totalCount = parsed.tokenList.flatMap((token) => [
+      null,
+      Object.values(token.minters),
+    ]).length
+
     for (const token of parsed.tokenList) {
+      logger.debug('Processing token', { symbol: token.symbol })
       const sourceNetwork = networks.find(
         (chain) => chain.orbitId && chain.orbitId === token.chain,
       )
 
       if (!sourceNetwork) {
-        logger.warn('No source network found', { chain: token.chain })
+        logger.debug('No source network found', {
+          symbol: token.symbol,
+          chain: token.chain,
+        })
         continue
       }
+
+      logger.debug('Upserting source token', { symbol: token.symbol })
 
       const { id: sourceTokenId } = await db.token.upsert({
         select: { id: true },
@@ -97,13 +111,15 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
         },
       })
 
+      count++
+
       for (const [orbitChain, minters] of Object.entries(token.minters)) {
         const targetNetwork = networks.find(
           (chain) => chain.orbitId && chain.orbitId === orbitChain,
         )
 
         if (!targetNetwork) {
-          logger.warn('No target network found', { orbitChain })
+          logger.debug('No target network found', { orbitChain })
           continue
         }
 
@@ -111,6 +127,11 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
           if (minter.asOrigin) {
             continue
           }
+
+          logger.debug('Processing target token', {
+            sourceSymbol: token.symbol,
+            targetSymbol: minter.symbol,
+          })
 
           const { id: targetTokenId } = await db.token.upsert({
             select: { id: true },
@@ -168,8 +189,11 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
             },
           })
         }
+
+        count++
       }
     }
+    logger.info('Orbit info processed', { count, totalCount })
   }
 }
 

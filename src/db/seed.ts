@@ -109,6 +109,7 @@ async function seed() {
     ethereum: {
       axelarGatewayAddress: '0x4F4495243837681061C4743b74B3eEdf548D56A5',
       axelarId: 'ethereum',
+      orbitId: 'eth',
       wormholeId: 'eth',
     },
     'arbitrum-one': {
