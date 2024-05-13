@@ -66,10 +66,7 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
       }
       for (const [key, value] of Object.entries(token)) {
         if (key.endsWith('Address') && key !== 'sourceAddress' && value) {
-          const address = z
-            .string()
-            .transform((arg) => getAddress(arg))
-            .parse(value)
+          const address = z.string().parse(value)
           entry.chains.push({
             chain: key.slice(0, -'Address'.length),
             address,
