@@ -78,6 +78,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
     await db.tokenMeta.upsertMany({
       data: tokensToInsert.map(({ token, meta }) => ({
         id: nanoid(),
+        // biome-ignore lint/style/noNonNullAssertion: data must be there
         tokenId: tokenIds.find(
           (t) => t.networkId === token.networkId && t.address === token.address,
         )!.id,
