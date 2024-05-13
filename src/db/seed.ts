@@ -103,31 +103,36 @@ async function seed() {
       .filter(notUndefined),
   })
 
-  const axelarConsts = {
+  const consts = {
     ethereum: {
       axelarGatewayAddress: '0x4F4495243837681061C4743b74B3eEdf548D56A5',
       axelarId: 'ethereum',
+      wormholeId: 'eth',
     },
     'arbitrum-one': {
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       axelarId: 'arbitrum',
+      wormholeId: 'arbitrum',
     },
     'optimistic-ethereum': {
       axelarId: 'optimism',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      wormholeId: 'optimism',
     },
     base: {
       axelarId: 'base',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      wormholeId: 'base',
     },
     linea: {
       axelarId: 'linea',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
+      wormholeId: 'linea',
     },
   } as const
 
   await db.$transaction(
-    Object.entries(axelarConsts).map(([coingeckoId, consts]) =>
+    Object.entries(consts).map(([coingeckoId, consts]) =>
       db.network.update({
         where: {
           coingeckoId,
