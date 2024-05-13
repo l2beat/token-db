@@ -69,13 +69,13 @@ export function buildDeploymentSource(
         where: {
           tokenId_source: {
             tokenId: token.id,
-            source: 'DEPlOYMENT',
+            source: 'DEPLOYMENT',
           },
         },
         create: {
           id: metaId,
           tokenId: token.id,
-          source: 'DEPlOYMENT',
+          source: 'DEPLOYMENT',
           externalId: deploymentInfo.txHash,
           contractName: metaInfo.contractName,
         },
@@ -127,8 +127,10 @@ function getDeploymentData(
 ) {
   return async function (token: Token) {
     const tokenAddress = token.address as `0x${string}`
-    const source = await explorer.getContractSource(tokenAddress)
-    const deployment = await explorer.getContractDeployment(tokenAddress)
+    const [source, deployment] = await Promise.all([
+      explorer.getContractSource(tokenAddress),
+      explorer.getContractDeployment(tokenAddress),
+    ])
 
     const metaInfo = {
       contractName: source?.ContractName ? source.ContractName : null,
@@ -136,7 +138,6 @@ function getDeploymentData(
 
     if (deployment?.txHash.startsWith('GENESIS')) {
       const deploymentInfo = {
-        contractName: source?.ContractName ? source.ContractName : null,
         txHash: deployment.txHash,
         blockNumber: null,
         timestamp: null,
