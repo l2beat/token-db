@@ -40,13 +40,14 @@ export async function getNetworksConfig({
     .map((network) => {
       const chain = chains.find((c) => c.id === network.chainId)
 
+      if (!chain) {
+        return
+      }
+
       const explorerClient = network.explorer
         ? instantiateExplorer(network.explorer)
         : undefined
 
-      if (!chain) {
-        return
-      }
       return {
         name: network.name,
         chainId: network.chainId,
