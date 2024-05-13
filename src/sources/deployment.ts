@@ -1,19 +1,26 @@
 import { Logger } from '@l2beat/backend-tools'
 import { PrismaClient } from '../db/prisma.js'
 import { Token } from '@prisma/client'
-import {
-  NetworkExplorerClient,
-  instantiateExplorer,
-} from '../utils/explorers/index.js'
+import { NetworkExplorerClient } from '../utils/explorers/index.js'
 import { setTimeout } from 'timers/promises'
-import { PublicClient, createPublicClient, http } from 'viem'
+import { PublicClient } from 'viem'
 import { nanoid } from 'nanoid'
+import { NetworkConfig } from '../utils/getNetworksConfig.js'
 
-export { buildDeploymentSource }
+export { buildDeploymentSource, withExplorer }
+
+type WithExplorer<T> = T & { explorerClient: NetworkExplorerClient }
+
+function withExplorer(
+  config: NetworkConfig,
+): config is WithExplorer<NetworkConfig> {
+  return !!config.explorerClient
+}
 
 type Dependencies = {
   logger: Logger
   db: PrismaClient
+  networkConfig: WithExplorer<NetworkConfig>
 }
 
 type Options = {
@@ -24,96 +31,86 @@ type Options = {
 }
 
 function buildDeploymentSource(
-  { logger, db }: Dependencies,
+  { logger, db, networkConfig }: Dependencies,
   { flush }: Options = { flush: false },
 ) {
-  logger = logger.for('DeploymentSource')
+  logger = logger.for('DeploymentSource').tag(networkConfig.name)
 
   return async function () {
-    const networksWithExplorer = await db.network.findMany({
-      include: { explorer: true, rpcs: true },
-      where: {
-        explorer: { isNot: null },
-      },
+    logger.info(`Running deployment source`, {
+      chain: networkConfig.name,
     })
 
-    const chainsToRunOn = networksWithExplorer.filter(
-      (network) => Boolean(network.explorer) && network.rpcs.length > 0,
+    const getDeployment = getDeploymentDataWithRetries(
+      networkConfig.explorerClient,
+      networkConfig.publicClient,
+      logger,
     )
 
-    const runStacks = chainsToRunOn.map((ctr) => ({
-      chainId: ctr.chainId,
-      // biome-ignore lint/style/noNonNullAssertion: I love prisma types mumbojubmo
-      explorer: instantiateExplorer(ctr.explorer!),
-      client: createPublicClient({
-        transport: http(ctr.rpcs[0]?.url),
-      }),
-    }))
+    const whereClause = flush
+      ? { network: { chainId: networkConfig.chainId } }
+      : {
+          AND: {
+            network: { chainId: networkConfig.chainId },
+            deployment: { is: null },
+          },
+        }
 
-    const explorerMap = new Map<number, NetworkExplorerClient>(
-      runStacks.map(({ chainId, explorer }) => [chainId, explorer]),
-    )
-
-    const clientMap = new Map<number, PublicClient>(
-      runStacks.map(({ chainId, client }) => [chainId, client]),
-    )
-
-    logger.info(`Running on chains`, {
-      chains: chainsToRunOn.map((c) => c.name),
+    const tokens = await db.token.findMany({
+      where: whereClause,
     })
 
-    for (const { chainId, name } of chainsToRunOn) {
-      logger = logger.tag(`${name}`)
+    logger.info(`Getting deployments info for tokens`, {
+      count: tokens.length,
+    })
 
-      // biome-ignore lint/style/noNonNullAssertion: part of run stacks
-      const explorer = explorerMap.get(chainId)!
-      // biome-ignore lint/style/noNonNullAssertion: part of run stacks
-      const publicClient = clientMap.get(chainId)!
-
-      const getDeployment = getDeploymentDataWithRetries(
-        explorer,
-        publicClient,
-        logger,
-      )
-
-      const whereClause = flush
-        ? { network: { chainId } }
-        : { AND: { network: { chainId }, deployment: { is: null } } }
-
-      const tokens = await db.token.findMany({
-        where: whereClause,
+    for (const [i, token] of tokens.entries()) {
+      logger.info(`Getting deployment info for token`, {
+        current: i + 1,
+        total: tokens.length,
       })
 
-      logger.info(`Getting deployments for tokens`, {
-        count: tokens.length,
-      })
+      const { deploymentInfo, metaInfo } = await getDeployment(token)
 
-      for (const [i, token] of tokens.entries()) {
-        logger.info(`Getting deployment for token`, {
-          current: i + 1,
-          total: tokens.length,
-        })
+      const metaId = nanoid()
+      const deploymentId = nanoid()
 
-        const deployment = await getDeployment(token)
-
-        const id = nanoid()
-
-        await db.deployment.upsert({
-          where: { tokenId: token.id },
-          create: {
-            id,
+      await db.tokenMeta.upsert({
+        where: {
+          tokenId_source: {
             tokenId: token.id,
-            ...deployment,
+            source: 'DEPlOYMENT',
           },
-          update: {
-            id,
-            ...deployment,
-          },
-        })
-      }
+        },
+        create: {
+          id: metaId,
+          tokenId: token.id,
+          source: 'DEPlOYMENT',
+          externalId: deploymentInfo.txHash,
+          contractName: metaInfo.contractName,
+        },
+        update: {
+          id: metaId,
+          externalId: deploymentInfo.txHash,
+          contractName: metaInfo.contractName,
+        },
+      })
+
+      await db.deployment.upsert({
+        where: { tokenId: token.id },
+        create: {
+          id: deploymentId,
+          tokenId: token.id,
+          ...deploymentInfo,
+        },
+        update: {
+          id: deploymentId,
+          ...deploymentInfo,
+        },
+      })
     }
 
-    logger.info('Deployments processed')
+    logger.info('Deployment info processed')
   }
 }
 
@@ -139,18 +136,28 @@ function getDeploymentData(
   publicClient: PublicClient,
 ) {
   return async function (token: Token) {
-    const deployment = await explorer.getContractDeployment(
-      token.address as `0x${string}`,
-    )
+    const tokenAddress = token.address as `0x${string}`
+    const source = await explorer.getContractSource(tokenAddress)
+    const deployment = await explorer.getContractDeployment(tokenAddress)
+
+    const metaInfo = {
+      contractName: source?.ContractName ? source.ContractName : null,
+    }
 
     if (deployment?.txHash.startsWith('GENESIS')) {
-      return {
+      const deploymentInfo = {
+        contractName: source?.ContractName ? source.ContractName : null,
         txHash: deployment.txHash,
         blockNumber: null,
         timestamp: null,
         isDeployerEoa: null,
         from: null,
         to: null,
+      }
+
+      return {
+        metaInfo,
+        deploymentInfo,
       }
     }
 
@@ -165,13 +172,18 @@ function getDeploymentData(
         blockNumber: tx.blockNumber,
       }))
 
-    return {
+    const deploymentInfo = {
       isDeployerEoa: deployment ? true : false,
       txHash: deployment?.txHash ?? null,
       timestamp: block ? new Date(Number(block.timestamp) * 1000) : null,
       blockNumber: tx ? Number(tx.blockNumber) : null,
       from: (tx?.from as string) ?? null,
       to: (tx?.to as string) ?? null,
+    }
+
+    return {
+      metaInfo,
+      deploymentInfo,
     }
   }
 }
