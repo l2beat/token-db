@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import { Network, Prisma } from '@prisma/client'
 import intersectionWith from 'lodash/intersectionWith.js'
 import { nanoid } from 'nanoid'
 import {
@@ -19,7 +19,6 @@ import {
 } from 'viem/chains'
 import { z } from 'zod'
 import { env } from '../env.js'
-import { isExplorerType } from '../utils/isExplorerType.js'
 import { notUndefined } from '../utils/notUndefined.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { createPrismaClient } from './prisma.js'
@@ -106,32 +105,37 @@ async function seed() {
       .filter(notUndefined),
   })
 
-  const consts = {
+  const consts: Record<string, Partial<Network>> = {
     ethereum: {
       axelarGatewayAddress: '0x4F4495243837681061C4743b74B3eEdf548D56A5',
       axelarId: 'ethereum',
       orbitId: 'eth',
       wormholeId: 'eth',
+      layerZeroV1EndpointAddress: '0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675',
     },
     'arbitrum-one': {
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       axelarId: 'arbitrum',
       wormholeId: 'arbitrum',
+      layerZeroV1EndpointAddress: '0x3c2269811836af69497E5F486A85D7316753cf62',
     },
     'optimistic-ethereum': {
       axelarId: 'optimism',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       wormholeId: 'optimism',
+      layerZeroV1EndpointAddress: '0x3c2269811836af69497E5F486A85D7316753cf62',
     },
     base: {
       axelarId: 'base',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       wormholeId: 'base',
+      layerZeroV1EndpointAddress: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
     },
     linea: {
       axelarId: 'linea',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       wormholeId: 'linea',
+      layerZeroV1EndpointAddress: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
     },
   } as const
 
@@ -143,28 +147,6 @@ async function seed() {
         },
         data: {
           ...consts,
-        },
-      }),
-    ),
-  )
-
-  const layerZeroV1Consts = {
-    // More can be added depending on how many networks we want to support
-    ethereum: '0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675',
-    'arbitrum-one': '0x3c2269811836af69497E5F486A85D7316753cf62',
-    'optimistic-ethereum': '0x3c2269811836af69497E5F486A85D7316753cf62',
-    base: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
-    linea: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
-  }
-
-  await db.$transaction(
-    Object.entries(layerZeroV1Consts).map(([coingeckoId, endpointAddress]) =>
-      db.network.update({
-        where: {
-          coingeckoId,
-        },
-        data: {
-          layerZeroV1EndpointAddress: endpointAddress,
         },
       }),
     ),

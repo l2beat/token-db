@@ -61,9 +61,24 @@ function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
     return GetSourceCodeResult.parse(response.result)[0]!
   }
 
+  async function getInternalTransactions(
+    address: `0x${string}`,
+    fromBlock: number,
+    toBlock: number,
+  ) {
+    const response = await call('account', 'txlistinternal', {
+      address,
+      startblock: fromBlock.toString(),
+      endblock: toBlock.toString(),
+    })
+
+    return GetInternalTransactionsResult.parse(response.result)
+  }
+
   return {
     getContractDeployment,
     getContractSource,
+    getInternalTransactions,
   }
 }
 
@@ -104,3 +119,30 @@ export const ContractSource = z.object({
 })
 
 export const GetSourceCodeResult = z.array(ContractSource).length(1)
+
+export const EtherscanInternalTransaction = z.object({
+  blockNumber: z.string(),
+  timeStamp: z.string(),
+  hash: z.string(),
+  from: z.string(),
+  to: z.string(),
+  value: z.string(),
+  contractAddress: z.string(),
+  input: z.string(),
+  type: z.string(),
+  gas: z.string(),
+  gasUsed: z.string(),
+  traceId: z.string(),
+  isError: z.string(),
+  errCode: z.string(),
+})
+export type EtherscanInternalTransaction = z.infer<
+  typeof EtherscanInternalTransaction
+>
+
+export const GetInternalTransactionsResult = z.array(
+  EtherscanInternalTransaction,
+)
+export type GetInternalTransactionsResult = z.infer<
+  typeof GetInternalTransactionsResult
+>

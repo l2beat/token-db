@@ -176,8 +176,6 @@ function buildLayerZeroV1Source({ db, logger }: Dependencies) {
         })),
         conflictPaths: ['networkId', 'address'],
       })
-
-      // TODO: Resolve OFT target chain if possible and assign it as a token bridge
     }
   }
 }
