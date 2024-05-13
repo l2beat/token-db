@@ -1,8 +1,7 @@
 import { assert } from '@l2beat/backend-tools'
-import { getAddress } from 'viem'
 import { z } from 'zod'
 
-import { Source, SourceContext } from './source.js'
+import { SourceContext } from './source.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { env } from '../env.js'
 import { nanoid } from 'nanoid'
