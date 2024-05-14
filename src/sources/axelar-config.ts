@@ -5,6 +5,7 @@ import { SourceContext } from './source.js'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { env } from '../env.js'
 import { nanoid } from 'nanoid'
+import { upsertTokenWithMeta } from '../db/helpers.js'
 
 export function buildAxelarConfigSource({ logger, db }: SourceContext) {
   return async () => {
@@ -111,42 +112,13 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
       })
 
       // Upsert the source token and its metadata
-      const { id: sourceTokenId } = await db.token.upsert({
-        select: { id: true },
-        where: {
-          networkId_address: {
-            networkId: sourceNetwork.id,
-            address: sourceToken.tokenAddress,
-          },
-        },
-        create: {
-          id: nanoid(),
-          networkId: sourceNetwork.id,
-          address: sourceToken.tokenAddress,
-        },
-        update: {},
-      })
-
-      await db.tokenMeta.upsert({
-        where: {
-          tokenId_source: {
-            tokenId: sourceTokenId,
-            source: 'axelar-config',
-          },
-        },
-        create: {
-          id: nanoid(),
-          tokenId: sourceTokenId,
-          source: 'axelar-config',
-          externalId: sourceToken.fullDenomPath,
-          symbol: sourceToken.assetSymbol,
-          name: sourceToken.assetName,
-        },
-        update: {
-          externalId: sourceToken.fullDenomPath,
-          symbol: sourceToken.assetSymbol,
-          name: sourceToken.assetName,
-        },
+      const { tokenId: sourceTokenId } = await upsertTokenWithMeta(db, {
+        networkId: sourceNetwork.id,
+        address: sourceToken.tokenAddress,
+        source: 'axelar-config',
+        externalId: sourceToken.fullDenomPath,
+        symbol: sourceToken.assetSymbol,
+        name: sourceToken.assetName,
       })
 
       // Next, process the bridged tokens
@@ -166,42 +138,13 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         const address = token.tokenAddress
 
         // Upsert the target token and its metadata
-        const { id: targetTokenId } = await db.token.upsert({
-          select: { id: true },
-          where: {
-            networkId_address: {
-              networkId,
-              address,
-            },
-          },
-          create: {
-            id: nanoid(),
-            networkId,
-            address,
-          },
-          update: {},
-        })
-
-        await db.tokenMeta.upsert({
-          where: {
-            tokenId_source: {
-              tokenId: targetTokenId,
-              source: 'axelar-config',
-            },
-          },
-          create: {
-            id: nanoid(),
-            tokenId: targetTokenId,
-            source: 'axelar-config',
-            externalId: token.fullDenomPath,
-            symbol: token.assetSymbol,
-            name: token.assetName,
-          },
-          update: {
-            externalId: token.fullDenomPath,
-            symbol: token.assetSymbol,
-            name: token.assetName,
-          },
+        const { tokenId: targetTokenId } = await upsertTokenWithMeta(db, {
+          networkId,
+          address,
+          source: 'axelar-config',
+          externalId: token.fullDenomPath,
+          symbol: token.assetSymbol,
+          name: token.assetName,
         })
 
         // Upsert the bridge entry

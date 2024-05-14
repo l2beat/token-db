@@ -6,6 +6,7 @@ import { setTimeout } from 'timers/promises'
 import { PublicClient } from 'viem'
 import { nanoid } from 'nanoid'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
+import { upsertTokenMeta } from '../db/helpers.js'
 
 type Dependencies = {
   logger: Logger
@@ -62,39 +63,21 @@ export function buildDeploymentSource(
 
       const { deploymentInfo, metaInfo } = await getDeployment(token)
 
-      const metaId = nanoid()
-      const deploymentId = nanoid()
-
-      await db.tokenMeta.upsert({
-        where: {
-          tokenId_source: {
-            tokenId: token.id,
-            source: 'DEPLOYMENT',
-          },
-        },
-        create: {
-          id: metaId,
-          tokenId: token.id,
-          source: 'DEPLOYMENT',
-          externalId: deploymentInfo.txHash,
-          contractName: metaInfo.contractName,
-        },
-        update: {
-          id: metaId,
-          externalId: deploymentInfo.txHash,
-          contractName: metaInfo.contractName,
-        },
+      await upsertTokenMeta(db, {
+        tokenId: token.id,
+        source: 'DEPLOYMENT',
+        externalId: deploymentInfo.txHash,
+        contractName: metaInfo.contractName,
       })
 
       await db.deployment.upsert({
         where: { tokenId: token.id },
         create: {
-          id: deploymentId,
+          id: nanoid(),
           tokenId: token.id,
           ...deploymentInfo,
         },
         update: {
-          id: deploymentId,
           ...deploymentInfo,
         },
       })

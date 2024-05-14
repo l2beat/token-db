@@ -1,8 +1,8 @@
 import { Logger } from '@l2beat/backend-tools'
 import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
-import { nanoid } from 'nanoid'
 import { PrismaClient } from '../db/prisma.js'
+import { upsertManyTokensWithMeta } from '../db/helpers.js'
 
 export { buildTokenListSource }
 
@@ -23,7 +23,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
 
     const networks = await db.network.findMany()
 
-    const tokensToInsert = result.tokens.flatMap((token) => {
+    const tokens = result.tokens.flatMap((token) => {
       const chain = networks.find((n) => n.chainId === token.chainId)
 
       if (!chain) {
@@ -34,58 +34,25 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
         return []
       }
 
-      const insertToken = {
+      return {
         networkId: chain.id,
         address: token.address.toUpperCase(),
-      }
-
-      const meta = {
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
         source: `TOKEN_LIST_${tag}`,
         logoUrl: token.logoURI,
       }
-
-      return { token: insertToken, meta }
     })
 
-    if (tokensToInsert.length === 0) {
+    if (tokens.length === 0) {
       logger.warn('No tokens to insert')
       return
     }
 
-    logger.info('Inserting tokens', { count: tokensToInsert.length })
+    logger.info('Inserting tokens', { count: tokens.length })
 
-    await db.token.upsertMany({
-      data: tokensToInsert.map(({ token }) => ({
-        id: nanoid(),
-        ...token,
-      })),
-      conflictPaths: ['networkId', 'address'],
-    })
-
-    const tokenIds = await db.token.findMany({
-      select: { id: true, networkId: true, address: true },
-      where: {
-        OR: tokensToInsert.map(({ token }) => ({
-          networkId: token.networkId,
-          address: token.address,
-        })),
-      },
-    })
-
-    await db.tokenMeta.upsertMany({
-      data: tokensToInsert.map(({ token, meta }) => ({
-        id: nanoid(),
-        // biome-ignore lint/style/noNonNullAssertion: data must be there
-        tokenId: tokenIds.find(
-          (t) => t.networkId === token.networkId && t.address === token.address,
-        )!.id,
-        ...meta,
-      })),
-      conflictPaths: ['tokenId', 'source'],
-    })
+    await upsertManyTokensWithMeta(db, tokens)
 
     logger.info('Token list processed')
   }
