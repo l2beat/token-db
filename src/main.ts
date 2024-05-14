@@ -7,11 +7,11 @@ import { buildTokenListSource } from './sources/tokenList.js'
 import { createPrismaClient } from './db/prisma.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
+import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
-import { buildWormholeSource } from './sources/wormhole.js'
-import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOrbitSource } from './sources/orbit.js'
+import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 
 const db = createPrismaClient()
@@ -56,10 +56,13 @@ const coingeckoSource = buildCoingeckoSource({
   db,
 })
 
-const axelarGatewaySource = buildAxelarGatewaySource({
-  logger,
-  db,
-})
+const axelarGatewaySources = networksConfig.map((networkConfig) =>
+  buildAxelarGatewaySource({
+    logger,
+    db,
+    networkConfig,
+  }),
+)
 
 const onChainMetadataSources = networksConfig.map((networkConfig) =>
   buildOnChainMetadataSource({
@@ -99,7 +102,7 @@ const optimismCanonicalSource = buildOptimismCanonicalSource({
 const pipeline = [
   coingeckoSource,
   ...tokenListSources,
-  axelarGatewaySource,
+  ...axelarGatewaySources,
   ...onChainMetadataSources,
   axelarConfigSource,
   wormholeSource,
