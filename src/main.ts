@@ -13,6 +13,7 @@ import { buildWormholeSource } from './sources/wormhole.js'
 import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
+import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 
 const db = createPrismaClient()
 
@@ -96,6 +97,14 @@ const optimismCanonicalSource = buildOptimismCanonicalSource({
   networksConfig,
 })
 
+const lzSources = networksConfig.filter(withExplorer).map((networkConfig) =>
+  buildLayerZeroV1Source({
+    logger,
+    db,
+    networkConfig,
+  }),
+)
+
 const pipeline = [
   coingeckoSource,
   ...tokenListSources,
@@ -105,6 +114,7 @@ const pipeline = [
   wormholeSource,
   ...deploymentSources,
   orbitSource,
+  ...lzSources,
 
   // those 2 have to be after deployment sources
   arbitrumCanonicalSource,

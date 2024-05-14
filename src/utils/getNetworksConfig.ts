@@ -14,6 +14,7 @@ type Dependencies = {
 }
 
 export type NetworkConfig = {
+  networkId: string
   name: string
   chainId: number
   publicClient: PublicClient
@@ -49,6 +50,7 @@ export async function getNetworksConfig({
         : undefined
 
       return {
+        networkId: network.id,
         name: network.name,
         chainId: network.chainId,
         publicClient: createPublicClient({
