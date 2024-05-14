@@ -1,6 +1,5 @@
 import { Logger } from '@l2beat/backend-tools'
 
-import { nanoid } from 'nanoid'
 import { getContract, parseAbiItem } from 'viem'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
