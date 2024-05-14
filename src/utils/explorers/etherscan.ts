@@ -1,8 +1,13 @@
+import { RateLimiter } from '@l2beat/backend-tools'
 import { z } from 'zod'
 
 export { buildEtherscanExplorer }
 
 function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
+  const rateLimiter = new RateLimiter({
+    callsPerMinute: 150,
+  })
+
   async function call(
     module: string,
     action: string,
@@ -23,8 +28,10 @@ function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
     return response
   }
 
+  const rateLimitedCall = rateLimiter.wrap(call)
+
   async function getContractDeployment(address: `0x${string}`) {
-    const response = await call('contract', 'getcontractcreation', {
+    const response = await rateLimitedCall('contract', 'getcontractcreation', {
       contractaddresses: address,
     })
     if (response.message === 'No data found') {
@@ -38,7 +45,9 @@ function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
   }
 
   async function getContractSource(address: `0x${string}`) {
-    const response = await call('contract', 'getsourcecode', { address })
+    const response = await rateLimitedCall('contract', 'getsourcecode', {
+      address,
+    })
     if (response.message === 'No data found') {
       return undefined
     }
