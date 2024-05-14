@@ -34,6 +34,7 @@ function buildOnChainMetadataSource({
         metadata: {
           some: {
             OR: [{ name: null }, { decimals: null }, { symbol: null }],
+            source: 'ONCHAIN',
           },
         },
         network: {
