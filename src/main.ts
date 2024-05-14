@@ -7,10 +7,11 @@ import { buildTokenListSource } from './sources/tokenList.js'
 import { createPrismaClient } from './db/prisma.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
-import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
 import { buildWormholeSource } from './sources/wormhole.js'
+import { buildDeploymentSource } from './sources/deployment.js'
+import { buildOrbitSource } from './sources/orbit.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 
 const db = createPrismaClient()
@@ -71,6 +72,8 @@ const axelarConfigSource = buildAxelarConfigSource({ logger, db })
 
 const wormholeSource = buildWormholeSource({ logger, db })
 
+const orbitSource = buildOrbitSource({ logger, db })
+
 const deploymentSources = networksConfig
   .filter(withExplorer)
   .map((networkConfig) =>
@@ -101,6 +104,7 @@ const pipeline = [
   axelarConfigSource,
   wormholeSource,
   ...deploymentSources,
+  orbitSource,
 
   // those 2 have to be after deployment sources
   arbitrumCanonicalSource,
