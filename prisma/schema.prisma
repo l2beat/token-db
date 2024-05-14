@@ -36,6 +36,7 @@ model Deployment {
   from          String?
   to            String?
   isDeployerEoa Boolean?
+  sourceAvailable Boolean
 }
 
 enum ExplorerType {

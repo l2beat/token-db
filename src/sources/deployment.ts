@@ -143,6 +143,7 @@ function getDeploymentData(
         isDeployerEoa: null,
         from: null,
         to: null,
+        sourceAvailable: (source?.SourceCode?.length ?? 0) > 0,
       }
 
       return {
@@ -169,6 +170,7 @@ function getDeploymentData(
       blockNumber: tx ? Number(tx.blockNumber) : null,
       from: (tx?.from as string) ?? null,
       to: (tx?.to as string) ?? null,
+      sourceAvailable: (source?.SourceCode?.length ?? 0) > 0,
     }
 
     return {
