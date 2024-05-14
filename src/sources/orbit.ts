@@ -4,6 +4,7 @@ import { SourceContext } from './source.js'
 import { env } from '../env.js'
 import { assert } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
+import { upsertTokenWithMeta } from '../db/helpers.js'
 
 export function buildOrbitSource({ logger, db }: SourceContext) {
   logger = logger.for('OrbitSource')
@@ -73,42 +74,13 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
 
       logger.debug('Upserting source token', { symbol: token.symbol })
 
-      const { id: sourceTokenId } = await db.token.upsert({
-        select: { id: true },
-        where: {
-          networkId_address: {
-            networkId: sourceNetwork.id,
-            address: getAddress(token.address),
-          },
-        },
-        create: {
-          id: nanoid(),
-          networkId: sourceNetwork.id,
-          address: getAddress(token.address),
-        },
-        update: {},
-      })
-
-      await db.tokenMeta.upsert({
-        where: {
-          tokenId_source: {
-            tokenId: sourceTokenId,
-            source: 'orbit',
-          },
-        },
-        create: {
-          id: nanoid(),
-          tokenId: sourceTokenId,
-          source: 'orbit',
-          externalId: token.address,
-          symbol: token.symbol,
-          decimals: token.decimals,
-        },
-        update: {
-          externalId: token.address,
-          symbol: token.symbol,
-          decimals: token.decimals,
-        },
+      const { tokenId: sourceTokenId } = await upsertTokenWithMeta(db, {
+        networkId: sourceNetwork.id,
+        address: getAddress(token.address),
+        source: 'orbit',
+        externalId: token.address,
+        symbol: token.symbol,
+        decimals: token.decimals,
       })
 
       count++
@@ -133,42 +105,13 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
             targetSymbol: minter.symbol,
           })
 
-          const { id: targetTokenId } = await db.token.upsert({
-            select: { id: true },
-            where: {
-              networkId_address: {
-                networkId: targetNetwork.id,
-                address: getAddress(minter.address),
-              },
-            },
-            create: {
-              id: nanoid(),
-              networkId: targetNetwork.id,
-              address: getAddress(token.address),
-            },
-            update: {},
-          })
-
-          await db.tokenMeta.upsert({
-            where: {
-              tokenId_source: {
-                tokenId: targetTokenId,
-                source: 'orbit',
-              },
-            },
-            create: {
-              id: nanoid(),
-              tokenId: sourceTokenId,
-              source: 'orbit',
-              externalId: minter.address,
-              symbol: minter.symbol,
-              decimals: token.decimals,
-            },
-            update: {
-              externalId: token.address,
-              symbol: token.symbol,
-              decimals: token.decimals,
-            },
+          const { tokenId: targetTokenId } = await upsertTokenWithMeta(db, {
+            networkId: targetNetwork.id,
+            address: getAddress(minter.address),
+            source: 'orbit',
+            externalId: minter.address,
+            symbol: minter.symbol,
+            decimals: token.decimals,
           })
 
           await db.tokenBridge.upsert({

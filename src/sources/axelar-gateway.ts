@@ -1,8 +1,8 @@
 import { createPublicClient, http, isAddress, parseAbiItem } from 'viem'
 import { Logger, assert } from '@l2beat/backend-tools'
 import { SetRequired } from 'type-fest'
-import { nanoid } from 'nanoid'
 import { PrismaClient } from '../db/prisma.js'
+import { upsertManyTokensWithMeta } from '../db/helpers.js'
 
 export { buildAxelarGatewaySource }
 
@@ -65,47 +65,14 @@ function buildAxelarGatewaySource({ logger, db }: Dependencies) {
             } => !!log.args.tokenAddresses,
           )
           .map((log) => ({
-            token: {
-              networkId: network.id,
-              address: log.args.tokenAddresses,
-            },
-            tokenMeta: {
-              source: 'axelar-gateway' as const,
-              symbol: log.args.symbol,
-              externalId: `${log.transactionHash}-${log.logIndex.toString()}`,
-            },
+            networkId: network.id,
+            address: log.args.tokenAddresses,
+            source: 'axelar-gateway' as const,
+            symbol: log.args.symbol,
+            externalId: `${log.transactionHash}-${log.logIndex.toString()}`,
           }))
 
-        await db.token.upsertMany({
-          data: tokens.map(({ token }) => ({
-            id: nanoid(),
-            ...token,
-          })),
-          conflictPaths: ['networkId', 'address'],
-        })
-
-        const tokenIds = await db.token.findMany({
-          select: { id: true, networkId: true, address: true },
-          where: {
-            OR: tokens.map(({ token }) => ({
-              networkId: token.networkId,
-              address: token.address,
-            })),
-          },
-        })
-
-        await db.tokenMeta.upsertMany({
-          data: tokens.map(({ token, tokenMeta }) => ({
-            id: nanoid(),
-            // biome-ignore lint/style/noNonNullAssertion: data must be there
-            tokenId: tokenIds.find(
-              (t) =>
-                t.networkId === token.networkId && t.address === token.address,
-            )!.id,
-            ...tokenMeta,
-          })),
-          conflictPaths: ['tokenId', 'source'],
-        })
+        await upsertManyTokensWithMeta(db, tokens)
 
         logger.info(
           `Synced ${tokens.length} tokens from Axelar Gateway on ${network.name}`,

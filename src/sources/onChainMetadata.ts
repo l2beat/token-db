@@ -1,10 +1,10 @@
 import { Logger } from '@l2beat/backend-tools'
 
-import { nanoid } from 'nanoid'
 import { getContract, parseAbiItem } from 'viem'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
 import { notUndefined } from '../utils/notUndefined.js'
+import { upsertManyTokenMeta } from '../db/helpers.js'
 
 export { buildOnChainMetadataSource }
 
@@ -79,19 +79,18 @@ function buildOnChainMetadataSource({
       }),
     )
 
-    const addedTokensMetadata = await db.tokenMeta.upsertMany({
-      data: tokensWithMetadata.filter(notUndefined).map((token) => ({
-        id: nanoid(),
-        tokenId: token.id,
-        name: token.name,
-        symbol: token.symbol,
-        decimals: token.decimals,
-        source: 'ONCHAIN',
-      })),
-      conflictPaths: ['tokenId', 'source'],
-    })
+    const data = tokensWithMetadata.filter(notUndefined).map((token) => ({
+      tokenId: token.id,
+      name: token.name,
+      symbol: token.symbol,
+      decimals: token.decimals,
+      source: 'ONCHAIN',
+    }))
+
+    await upsertManyTokenMeta(db, data)
+
     logger.info(
-      `Synced ${addedTokensMetadata} tokens metadata on ${networkConfig.name}`,
+      `Synced ${data.length} tokens metadata on ${networkConfig.name}`,
     )
   }
 }
