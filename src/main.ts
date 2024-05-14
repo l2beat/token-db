@@ -9,6 +9,7 @@ import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
+import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 
@@ -79,7 +80,14 @@ const deploymentSources = networksConfig
       networkConfig,
     }),
   )
+
 const arbitrumCanonicalSource = buildArbitrumCanonicalSource({
+  logger,
+  db,
+  networksConfig,
+})
+
+const optimismCanonicalSource = buildOptimismCanonicalSource({
   logger,
   db,
   networksConfig,
@@ -94,8 +102,9 @@ const pipeline = [
   wormholeSource,
   ...deploymentSources,
 
-  // has to be after deployment sources
+  // those 2 have to be after deployment sources
   arbitrumCanonicalSource,
+  optimismCanonicalSource,
 ]
 
 for (const step of pipeline) {
