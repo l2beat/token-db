@@ -8,6 +8,7 @@ import { createPrismaClient } from './db/prisma.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
+import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOrbitSource } from './sources/orbit.js'
@@ -82,7 +83,14 @@ const deploymentSources = networksConfig
       networkConfig,
     }),
   )
+
 const arbitrumCanonicalSource = buildArbitrumCanonicalSource({
+  logger,
+  db,
+  networksConfig,
+})
+
+const optimismCanonicalSource = buildOptimismCanonicalSource({
   logger,
   db,
   networksConfig,
@@ -98,8 +106,9 @@ const pipeline = [
   ...deploymentSources,
   orbitSource,
 
-  // has to be after deployment sources
+  // those 2 have to be after deployment sources
   arbitrumCanonicalSource,
+  optimismCanonicalSource,
 ]
 
 for (const step of pipeline) {
