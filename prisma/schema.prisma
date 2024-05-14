@@ -27,15 +27,16 @@ model Bridge {
 }
 
 model Deployment {
-  id            String    @id @db.Char(21)
-  tokenId       String    @unique
-  token         Token     @relation(fields: [tokenId], references: [id])
-  txHash        String?   @db.Char(66)
-  blockNumber   Int?
-  timestamp     DateTime? @db.Timestamp(6)
-  from          String?
-  to            String?
-  isDeployerEoa Boolean?
+  id              String    @id @db.Char(21)
+  tokenId         String    @unique
+  token           Token     @relation(fields: [tokenId], references: [id])
+  txHash          String?   @db.Char(66)
+  blockNumber     Int?
+  timestamp       DateTime? @db.Timestamp(6)
+  from            String?
+  to              String?
+  isDeployerEoa   Boolean?
+  sourceAvailable Boolean
 }
 
 enum ExplorerType {
@@ -64,12 +65,12 @@ model NetworkExplorer {
 model Network {
   id                   String           @id @db.Char(21)
   chainId              Int
-  name                 String         @db.VarChar(256)
-  coingeckoId          String?        @unique @db.VarChar(256)
-  axelarId             String?        @db.VarChar(256)
-  axelarGatewayAddress String?        @db.Char(42)
-  orbitId              String?        @db.VarChar(256)
-  wormholeId           String?        @db.VarChar(256)
+  name                 String           @db.VarChar(256)
+  coingeckoId          String?          @unique @db.VarChar(256)
+  axelarId             String?          @db.VarChar(256)
+  axelarGatewayAddress String?          @db.Char(42)
+  orbitId              String?          @db.VarChar(256)
+  wormholeId           String?          @db.VarChar(256)
   bridgeEscrows        BridgeEscrow[]
   rpcs                 NetworkRpc[]
   explorer             NetworkExplorer?
