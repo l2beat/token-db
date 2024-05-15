@@ -1,10 +1,10 @@
 import { Logger } from '@l2beat/backend-tools'
-import { PrismaClient } from '../db/prisma.js'
 import { Token } from '@prisma/client'
-import { NetworkExplorerClient } from '../utils/explorers/index.js'
+import { nanoid } from 'nanoid'
 import { setTimeout } from 'timers/promises'
 import { PublicClient } from 'viem'
-import { nanoid } from 'nanoid'
+import { PrismaClient } from '../db/prisma.js'
+import { NetworkExplorerClient } from '../utils/explorers/index.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
 import { upsertTokenMeta } from '../db/helpers.js'
 
@@ -12,76 +12,48 @@ type Dependencies = {
   logger: Logger
   db: PrismaClient
   networkConfig: WithExplorer<NetworkConfig>
+  token: {
+    id: string
+    networkId: string
+    address: string
+  }
 }
 
-type Options = {
-  /**
-   * If true, the source will fetch the data for all tokens from scratch.
-   */
-  flush: boolean
-}
-
-export function buildDeploymentSource(
-  { logger, db, networkConfig }: Dependencies,
-  { flush }: Options = { flush: false },
-) {
-  logger = logger.for('DeploymentSource').tag(networkConfig.name)
+export function buildDeploymentSource({
+  logger,
+  db,
+  networkConfig,
+  token,
+}: Dependencies) {
+  logger = logger.for('DeploymentSource').tag(networkConfig.name).tag(token.id)
 
   return async function () {
-    logger.info(`Running deployment source`, {
-      chain: networkConfig.name,
-    })
-
     const getDeployment = getDeploymentDataWithRetries(
       networkConfig.explorerClient,
       networkConfig.publicClient,
       logger,
     )
 
-    const whereClause = flush
-      ? { network: { chainId: networkConfig.chainId } }
-      : {
-          AND: {
-            network: { chainId: networkConfig.chainId },
-            deployment: { is: null },
-          },
-        }
+    const { deploymentInfo, metaInfo } = await getDeployment(token)
 
-    const tokens = await db.token.findMany({
-      where: whereClause,
+    await upsertTokenMeta(db, {
+      tokenId: token.id,
+      source: 'DEPLOYMENT',
+      externalId: deploymentInfo.txHash,
+      contractName: metaInfo.contractName,
     })
 
-    logger.info(`Getting deployments info for tokens`, {
-      count: tokens.length,
-    })
-
-    for (const [i, token] of tokens.entries()) {
-      logger.info(`Getting deployment info for token`, {
-        current: i + 1,
-        total: tokens.length,
-      })
-
-      const { deploymentInfo, metaInfo } = await getDeployment(token)
-
-      await upsertTokenMeta(db, {
+    await db.deployment.upsert({
+      where: { tokenId: token.id },
+      create: {
+        id: nanoid(),
         tokenId: token.id,
-        source: 'DEPLOYMENT',
-        externalId: deploymentInfo.txHash,
-        contractName: metaInfo.contractName,
-      })
-
-      await db.deployment.upsert({
-        where: { tokenId: token.id },
-        create: {
-          id: nanoid(),
-          tokenId: token.id,
-          ...deploymentInfo,
-        },
-        update: {
-          ...deploymentInfo,
-        },
-      })
-    }
+        ...deploymentInfo,
+      },
+      update: {
+        ...deploymentInfo,
+      },
+    })
 
     logger.info('Deployment info processed')
   }

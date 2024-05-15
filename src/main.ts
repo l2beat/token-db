@@ -7,12 +7,13 @@ import { buildTokenListSource } from './sources/tokenList.js'
 import { createPrismaClient } from './db/prisma.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
+import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
-import { buildWormholeSource } from './sources/wormhole.js'
-import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOrbitSource } from './sources/orbit.js'
+import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
+import { getTokensForChain } from './utils/getTokensForChain.js'
 import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 
 const db = createPrismaClient()
@@ -57,10 +58,13 @@ const coingeckoSource = buildCoingeckoSource({
   db,
 })
 
-const axelarGatewaySource = buildAxelarGatewaySource({
-  logger,
-  db,
-})
+const axelarGatewaySources = networksConfig.map((networkConfig) =>
+  buildAxelarGatewaySource({
+    logger,
+    db,
+    networkConfig,
+  }),
+)
 
 const onChainMetadataSources = networksConfig.map((networkConfig) =>
   buildOnChainMetadataSource({
@@ -75,15 +79,60 @@ const wormholeSource = buildWormholeSource({ logger, db })
 
 const orbitSource = buildOrbitSource({ logger, db })
 
-const deploymentSources = networksConfig
-  .filter(withExplorer)
-  .map((networkConfig) =>
-    buildDeploymentSource({
-      logger,
-      db,
-      networkConfig,
+const lzSources = networksConfig.filter(withExplorer).map((networkConfig) =>
+  buildLayerZeroV1Source({
+    logger,
+    db,
+    networkConfig,
+  }),
+)
+
+const pipeline = [
+  coingeckoSource,
+  ...tokenListSources,
+  ...axelarGatewaySources,
+  ...onChainMetadataSources,
+  axelarConfigSource,
+  wormholeSource,
+  orbitSource,
+  ...lzSources,
+]
+
+for (const step of pipeline) {
+  try {
+    await step()
+  } catch (e) {
+    logger.error('Failed to run step', { error: e })
+  }
+}
+
+const deploymentSources = (
+  await Promise.all(
+    networksConfig.filter(withExplorer).map(async (networkConfig) => {
+      logger.info(`Running deployment source`, {
+        chain: networkConfig.name,
+      })
+
+      const tokens = await getTokensForChain({
+        db,
+        networkConfig,
+      })
+
+      logger.info(`Getting deployments info for tokens`, {
+        count: tokens.length,
+      })
+
+      return tokens.map((token) =>
+        buildDeploymentSource({
+          logger,
+          db,
+          networkConfig,
+          token,
+        }),
+      )
     }),
   )
+).flat()
 
 const arbitrumCanonicalSource = buildArbitrumCanonicalSource({
   logger,
@@ -97,31 +146,15 @@ const optimismCanonicalSource = buildOptimismCanonicalSource({
   networksConfig,
 })
 
-const lzSources = networksConfig.filter(withExplorer).map((networkConfig) =>
-  buildLayerZeroV1Source({
-    logger,
-    db,
-    networkConfig,
-  }),
-)
-
-const pipeline = [
-  coingeckoSource,
-  ...tokenListSources,
-  axelarGatewaySource,
-  ...onChainMetadataSources,
-  axelarConfigSource,
-  wormholeSource,
+const dependedPipeline = [
   ...deploymentSources,
-  orbitSource,
-  ...lzSources,
 
   // those 2 have to be after deployment sources
   arbitrumCanonicalSource,
   optimismCanonicalSource,
 ]
 
-for (const step of pipeline) {
+for (const step of dependedPipeline) {
   try {
     await step()
   } catch (e) {

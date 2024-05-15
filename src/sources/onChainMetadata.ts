@@ -31,11 +31,6 @@ function buildOnChainMetadataSource({
     logger.info(`Syncing tokens metadata on ${networkConfig.name}...`)
     const tokens = await db.token.findMany({
       where: {
-        metadata: {
-          some: {
-            OR: [{ name: null }, { decimals: null }, { symbol: null }],
-          },
-        },
         network: {
           chainId: networkConfig.chainId,
         },
