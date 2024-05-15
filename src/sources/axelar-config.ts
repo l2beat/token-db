@@ -20,7 +20,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
       return
     }
 
-    const res = await zodFetch(configUrl, configResponse)
+    const res = await zodFetch(configUrl, ConfigResponse)
 
     logger.info('Upserting bridge info')
     const { id: bridgeId } = await db.bridge.upsert({
@@ -168,7 +168,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
   }
 }
 
-const tokenChainConfig = z.object({
+const TokenChainConfig = z.object({
   assetSymbol: z.string(),
   assetName: z.string(),
   minDepositAmt: z.number(),
@@ -178,7 +178,7 @@ const tokenChainConfig = z.object({
   mintLimit: z.number(),
 })
 
-const tokenDefinition = z.object({
+const TokenDefinition = z.object({
   id: z.string(),
   common_key: z.object({
     devnet: z.string(),
@@ -191,7 +191,7 @@ const tokenDefinition = z.object({
   wrapped_erc20: z.string(),
   is_gas_token: z.boolean(),
   gas_token_id: z.string(),
-  chain_aliases: z.record(tokenChainConfig),
+  chain_aliases: z.record(TokenChainConfig),
 })
 
-const configResponse = z.record(tokenDefinition)
+const ConfigResponse = z.record(TokenDefinition)
