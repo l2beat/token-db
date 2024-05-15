@@ -4,11 +4,8 @@ import { Redis } from 'ioredis'
 import { setupWorker } from './setup-worker.js'
 
 /**
- *
- * A ----> B
- *
+ * Forward events from one queue to another.
  */
-
 export function forward<Event>({
   connection,
   logger,

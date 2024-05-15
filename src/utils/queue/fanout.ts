@@ -3,11 +3,7 @@ import { Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 
 /**
- *         ____ A.1
- *        /
- * A ----> ---- A.2
- *        \____ A.3
- *
+ * Fan-out events from one queue to multiple queues.
  */
 export function fanOut({
   connection,

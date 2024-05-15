@@ -3,19 +3,14 @@ import { Job, Queue } from 'bullmq'
 import { Redis } from 'ioredis'
 import { setupWorker } from './setup-worker.js'
 
-/**
- *         _    A.1
- *        /
- * A ---->      A.2
- *        \____ A.3
- *
- */
-
 type RoutedQueue<Event, RoutingKey> = {
   queue: Queue<Event>
   routingKey: RoutingKey
 }
 
+/**
+ * Route events from one queue to multiple queues based on a routing key.
+ */
 export function routed<Event, RoutingKey>({
   connection,
   logger,

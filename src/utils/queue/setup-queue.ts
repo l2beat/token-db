@@ -11,7 +11,7 @@ export function setupQueue<
     defaultJobOptions: {
       removeOnComplete: true,
       removeOnFail: false,
-      attempts: 5,
+      attempts: 10,
 
       backoff: {
         type: 'exponential',

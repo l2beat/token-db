@@ -15,10 +15,12 @@ import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { buildSingleQueue } from './utils/queue/single-queue.js'
 import { setupQueue } from './utils/queue/setup-queue.js'
 import { fanOut } from './utils/queue/fanout.js'
-import { routed } from './utils/queue/routed.js'
 import { Token } from '@prisma/client'
 import { forward } from './utils/queue/forward.js'
 import { wrapTokenQueue } from './utils/queue/wrap.js'
+import { buildCoingeckoSource } from './sources/coingecko.js'
+import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
+import { routed } from './utils/queue/routed.js'
 const connection = new Redis({
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
@@ -47,7 +49,16 @@ const lists = [
     tag: 'AAVE',
     url: 'http://tokenlist.aave.eth.link',
   },
+  {
+    tag: 'MYCRYPTO',
+    url: 'https://uniswap.mycryptoapi.com/',
+  },
+  {
+    tag: 'SUPERCHAIN',
+    url: 'https://static.optimism.io/optimism.tokenlist.json',
+  },
 ]
+
 const deploymentRoutingInbox = setupQueue<TokenPayload>({
   name: 'DeploymentRoutingInbox',
   connection,
@@ -95,18 +106,24 @@ forward({ connection, logger })(tokenUpdateInbox, deploymentRoutingInbox)
 
 const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
-// const coingeckoSource = buildCoingeckoSource({
-//   logger,
-//   db,
-//   queue: tokenUpdateQueue,
-// })
+// #region Independent sources
+
+const coingeckoSource = buildCoingeckoSource({
+  logger,
+  db,
+  queue: tokenUpdateQueue,
+})
 const axelarConfigSource = buildAxelarConfigSource({
   logger,
   db,
   queue: tokenUpdateQueue,
 })
-const wormholeSource = buildWormholeSource({ logger, db })
-const orbitSource = buildOrbitSource({ logger, db })
+const wormholeSource = buildWormholeSource({
+  logger,
+  db,
+  queue: tokenUpdateQueue,
+})
+const orbitSource = buildOrbitSource({ logger, db, queue: tokenUpdateQueue })
 const tokenListSources = lists.map(({ tag, url }) =>
   sourceQueue({
     processor: buildTokenListSource({
@@ -114,12 +131,28 @@ const tokenListSources = lists.map(({ tag, url }) =>
       url,
       logger,
       db,
+      queue: tokenUpdateQueue,
     }),
     name: `TokenListProcessor:${tag}`,
   }),
 )
+const axelarGatewayQueues = networksConfig.map((networkConfig) =>
+  sourceQueue({
+    name: `AxelarGatewayProcessor:${networkConfig.name}`,
+    processor: buildAxelarGatewaySource({
+      logger,
+      db,
+      networkConfig,
+      queue: tokenUpdateQueue,
+    }),
+  }),
+)
 
-// Independent queues
+const coingeckoQueue = sourceQueue({
+  name: 'CoingeckoProcessor',
+  processor: coingeckoSource,
+})
+
 const axelarConfigQueue = sourceQueue({
   name: 'AxelarConfigProcessor',
   processor: axelarConfigSource,
@@ -136,6 +169,8 @@ const orbitQueue = sourceQueue({
 })
 
 const independentSources = [
+  coingeckoQueue,
+  ...axelarGatewayQueues,
   axelarConfigQueue,
   wormholeQueue,
   orbitQueue,
@@ -151,6 +186,7 @@ fanOut({ connection, logger })(
   refreshInbox,
   independentSources.map((q) => q.queue),
 )
+// #endregion Independent sources
 
 // #region BullBoard
 
@@ -175,6 +211,7 @@ const app = express()
 app.use('/admin/queues', serverAdapter.getRouter())
 app.get('/refresh', () => {
   refreshInbox.add('RefreshSignal', {})
+  return { status: 'ok' }
 })
 
 app.listen(3000, () => {
