@@ -4,6 +4,8 @@ import { z } from 'zod'
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   DATABASE_URL: z.string(),
+  REDIS_HOST: z.string().default('localhost'),
+  REDIS_PORT: z.number().default(6379),
   COINGECKO_KEY: z.string().optional(),
   PRISMA_QUERY_LOG: z
     .string()

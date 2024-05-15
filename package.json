@@ -26,12 +26,15 @@
     "seed": "tsx src/db/seed.ts",
     "start": "tsx src/main.ts",
     "test": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "queue": "tsx --no-warnings=ExperimentalWarning --watch src/queue.ts"
   },
   "dependencies": {
     "@l2beat/backend-tools": "^0.5.2",
     "@prisma/client": "5.13.0",
+    "bullmq": "^5.7.8",
     "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
     "lodash": "^4.17.21",
     "nanoid": "^5.0.7",
     "papaparse": "^5.4.1",
