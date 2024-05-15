@@ -18,6 +18,7 @@ import { fanOut } from './utils/queue/fanout.js'
 import { routed } from './utils/queue/routed.js'
 import { Token } from '@prisma/client'
 import { forward } from './utils/queue/forward.js'
+import { wrapTokenQueue } from './utils/queue/wrap.js'
 const connection = new Redis({
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
@@ -92,14 +93,18 @@ const tokenUpdateInbox = setupQueue<TokenPayload>({
 
 forward({ connection, logger })(tokenUpdateInbox, deploymentRoutingInbox)
 
-// const tokenUpdateQueue = wrapTokenQueue(tokenUpdateQueueRaw.queue)
+const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
 // const coingeckoSource = buildCoingeckoSource({
 //   logger,
 //   db,
 //   queue: tokenUpdateQueue,
 // })
-const axelarConfigSource = buildAxelarConfigSource({ logger, db })
+const axelarConfigSource = buildAxelarConfigSource({
+  logger,
+  db,
+  queue: tokenUpdateQueue,
+})
 const wormholeSource = buildWormholeSource({ logger, db })
 const orbitSource = buildOrbitSource({ logger, db })
 const tokenListSources = lists.map(({ tag, url }) =>
@@ -147,6 +152,8 @@ fanOut({ connection, logger })(
   independentSources.map((q) => q.queue),
 )
 
+// #region BullBoard
+
 const serverAdapter = new ExpressAdapter()
 serverAdapter.setBasePath('/admin/queues')
 
@@ -155,6 +162,7 @@ const allQueues = [
   tokenUpdateInbox,
   refreshInbox,
   ...independentSources.map((q) => q.queue),
+  deploymentProcessors.map((p) => p.queue),
 ].flat()
 
 createBullBoard({
@@ -169,10 +177,9 @@ app.get('/refresh', () => {
   refreshInbox.add('RefreshSignal', {})
 })
 
-// other configurations of your server
-
 app.listen(3000, () => {
   console.log('Running on 3000...')
   console.log('For the UI, open http://localhost:3000/admin/queues')
-  console.log('Make sure Redis is running on port 6379 by default')
 })
+
+// #endregion BullBoard
