@@ -15,10 +15,7 @@ export function linkFanOutDistribution({
 }: { connection: Redis; logger: Logger }) {
   return (from: Queue, to: Queue[]) => {
     logger = logger.for('FanOutLinker').tag(from.name)
-    logger.info('Linking queues', {
-      from: from.name,
-      to: to.map((queue) => queue.name),
-    })
+
     const fanOutWorker = new Worker(
       from.name,
       async (job) => {
@@ -29,7 +26,10 @@ export function linkFanOutDistribution({
       { connection },
     )
 
-    logger.info('Linking done')
+    logger.info('Linked queues', {
+      from: from.name,
+      to: to.map((queue) => queue.name),
+    })
 
     return fanOutWorker
   }

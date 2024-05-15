@@ -23,15 +23,21 @@ export function buildDeploymentSource({
   logger,
   db,
   networkConfig,
-  token,
 }: Dependencies) {
-  logger = logger
-    .for('DeploymentSource')
-    .tag(networkConfig.name)
-    .tag(token.address)
+  logger = logger.for('DeploymentSource').tag(networkConfig.name)
 
-  return async function () {
-    logger.info(`Syncing token deployment info...`)
+  return async function (tokenId: string) {
+    const token = await db.token.findFirst({
+      where: {
+        id: tokenId,
+      },
+    })
+
+    if (!token) {
+      logger.error('Token not found', { tokenId })
+      return
+    }
+
     const getDeployment = getDeploymentDataWithRetries(
       networkConfig.explorerClient,
       networkConfig.publicClient,

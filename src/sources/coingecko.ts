@@ -4,15 +4,17 @@ import { z } from 'zod'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { zodFetch } from '../utils/zodFetch.js'
+import { TokenUpdateQueue } from '../utils/queue/wrap.js'
 
 export { buildCoingeckoSource }
 
 type Dependencies = {
   logger: Logger
   db: PrismaClient
+  queue: TokenUpdateQueue
 }
 
-function buildCoingeckoSource({ db, logger }: Dependencies) {
+function buildCoingeckoSource({ db, logger, queue }: Dependencies) {
   logger = logger.for('CoingeckoSource')
 
   return async function () {
@@ -73,9 +75,11 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
       )
 
     logger.info('Inserting tokens', { count: tokens.length })
-    await upsertManyTokensWithMeta(db, tokens)
+    const tokenIds = await upsertManyTokensWithMeta(db, tokens)
 
     logger.info(`Synced ${tokens.length} tokens from Coingecko`)
+
+    await Promise.all(tokenIds.map((id) => queue.add(id)))
   }
 }
 

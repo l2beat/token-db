@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client'
-import { PrismaClient } from './prisma.js'
 import { nanoid } from 'nanoid'
 import { Simplify } from 'type-fest'
 import { SourceTagParams, sourceTag } from '../utils/sourceTag.js'
+import { PrismaClient } from './prisma.js'
 
 export type UpsertTokenMetaInput = Simplify<
   Omit<Prisma.TokenMetaCreateManyInput, 'id' | 'source'> & {
@@ -138,4 +138,6 @@ export async function upsertManyTokensWithMeta(
     })),
     conflictPaths: ['tokenId', 'source'],
   })
+
+  return tokenEntities.map((token) => token.id)
 }

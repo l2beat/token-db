@@ -1,10 +1,12 @@
 import { Logger } from '@l2beat/backend-tools'
 import { Redis } from 'ioredis'
+import { setTimeout } from 'timers/promises'
 import { createPrismaClient } from './db/prisma.js'
 import { env } from './env.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildTokenListSource } from './sources/tokenList.js'
-import { buildBaseQueue } from './utils/queue/base-queue.js'
+import { buildFanOutQueue } from './utils/queue/fanout-queue.js'
+import { wrapTokenQueue } from './utils/queue/wrap.js'
 
 const connection = new Redis({
   host: env.REDIS_HOST,
@@ -45,17 +47,37 @@ const tokenListSources = lists.map(({ tag, url }) => ({
   name: `TokenList:${tag}`,
 }))
 
+const tokenUpdateQueueRaw = buildFanOutQueue({
+  connection,
+  logger,
+  queueName: 'TokenUpdateQueue',
+})([
+  {
+    name: 'dummy catcher',
+    source: async () => {
+      logger.info('Dummy catcher started')
+      await setTimeout(10_000)
+    },
+  },
+])
+
+const tokenUpdateQueue = wrapTokenQueue(tokenUpdateQueueRaw)
+
 const coingeckoSource = buildCoingeckoSource({
   logger,
   db,
+  queue: tokenUpdateQueue,
 })
 
-const refreshSignal = buildBaseQueue({ connection, logger })([
+const refreshQueue = buildFanOutQueue({
+  connection,
+  logger,
+  queueName: 'RefreshQueue',
+})([
   {
-    name: 'coingecko',
+    name: 'Coingecko',
     source: coingeckoSource,
   },
-  ...tokenListSources,
 ])
 
-setTimeout(refreshSignal, 5_000)
+refreshQueue.add('RefreshSignal', {})
