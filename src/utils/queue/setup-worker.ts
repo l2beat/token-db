@@ -1,10 +1,12 @@
 import { Logger } from '@l2beat/backend-tools'
-import { Queue, Worker } from 'bullmq'
+import { Processor, Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 
-export type JobProcessor = (...args: unknown[]) => Promise<unknown>
-
-export function setupWorker({
+export function setupWorker<
+  DataType,
+  ResultType,
+  NameType extends string = string,
+>({
   queue,
   connection,
   processor,
@@ -12,19 +14,24 @@ export function setupWorker({
 }: {
   queue: Queue
   connection: Redis
-  processor: JobProcessor
-  logger: Logger
+  processor: Processor<DataType, ResultType, NameType>
+  logger?: Logger
 }) {
   const worker = new Worker(queue.name, processor, {
     connection,
   })
 
-  setupLogging({ worker, logger })
+  if (logger) {
+    setupLogging({ worker, logger })
+  }
 
   return worker
 }
 
-function setupLogging({ worker, logger }: { worker: Worker; logger: Logger }) {
+function setupLogging<DataType, ResultType, NameType extends string>({
+  worker,
+  logger,
+}: { worker: Worker<DataType, ResultType, NameType>; logger: Logger }) {
   worker.on('active', (job) => {
     logger.info('Starting job', { id: job.id, name: job.name })
   })

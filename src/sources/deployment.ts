@@ -12,11 +12,6 @@ type Dependencies = {
   logger: Logger
   db: PrismaClient
   networkConfig: WithExplorer<NetworkConfig>
-  token: {
-    id: string
-    networkId: string
-    address: string
-  }
 }
 
 export function buildDeploymentSource({

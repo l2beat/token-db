@@ -1,11 +1,12 @@
 import { Queue } from 'bullmq'
 import { Redis } from 'ioredis'
 
-export function setupQueue({
-  name,
-  connection,
-}: { name: string; connection: Redis }) {
-  return new Queue(name, {
+export function setupQueue<
+  DataType,
+  ReturnType = unknown,
+  NameType extends string = string,
+>({ name, connection }: { name: string; connection: Redis }) {
+  return new Queue<DataType, ReturnType, NameType>(name, {
     connection,
     defaultJobOptions: {
       removeOnComplete: true,
