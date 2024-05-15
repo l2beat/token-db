@@ -3,9 +3,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js'
 import { ExpressAdapter } from '@bull-board/express'
 import { Logger } from '@l2beat/backend-tools'
 import express from 'express'
-import { Redis } from 'ioredis'
 import { createPrismaClient } from './db/prisma.js'
-import { env } from './env.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOrbitSource } from './sources/orbit.js'
@@ -21,11 +19,7 @@ import { wrapTokenQueue } from './utils/queue/wrap.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
 import { routed } from './utils/queue/routed.js'
-const connection = new Redis({
-  host: env.REDIS_HOST,
-  port: env.REDIS_PORT,
-  maxRetriesPerRequest: null,
-})
+import { connection } from './redis/redis.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 
@@ -38,7 +32,8 @@ const networksConfig = await getNetworksConfig({
   logger,
 })
 
-const sourceQueue = buildSingleQueue<TokenPayload>({ connection, logger })
+const sourceQueue = buildSingleQueue({ connection, logger })
+const dependantQueue = buildSingleQueue<TokenPayload>({ connection, logger })
 
 const lists = [
   {
@@ -70,8 +65,8 @@ const deploymentProcessors = networksConfig
   .map((networkConfig) => {
     const processor = buildDeploymentSource({ logger, db, networkConfig })
 
-    const bus = sourceQueue({
-      name: `DeploymentProcessor:${networkConfig.chainId}`,
+    const bus = dependantQueue({
+      name: `DeploymentProcessor:${networkConfig.name}`,
       processor: (job) => {
         return processor(job.data.tokenId)
       },
@@ -211,7 +206,10 @@ const app = express()
 app.use('/admin/queues', serverAdapter.getRouter())
 app.get('/refresh', () => {
   refreshInbox.add('RefreshSignal', {})
-  return { status: 'ok' }
+})
+
+app.get('/refresh/axelar-gateway', () => {
+  axelarConfigQueue.queue.add('RefreshSignal', {})
 })
 
 app.listen(3000, () => {
