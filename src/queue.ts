@@ -6,19 +6,25 @@ import express from 'express'
 import { Redis } from 'ioredis'
 import { createPrismaClient } from './db/prisma.js'
 import { env } from './env.js'
-import { buildCoingeckoSource } from './sources/coingecko.js'
+import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildDeploymentSource } from './sources/deployment.js'
+import { buildOrbitSource } from './sources/orbit.js'
 import { buildTokenListSource } from './sources/tokenList.js'
+import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
-import { buildFanOutQueue } from './utils/queue/fanout-queue.js'
-import { buildRoutedQueue } from './utils/queue/routed-queue.js'
-import { wrapTokenQueue } from './utils/queue/wrap.js'
-
+import { buildSingleQueue } from './utils/queue/single-queue.js'
+import { setupQueue } from './utils/queue/setup-queue.js'
+import { fanOut } from './utils/queue/fanout.js'
+import { routed } from './utils/queue/routed.js'
+import { Token } from '@prisma/client'
+import { forward } from './utils/queue/forward.js'
 const connection = new Redis({
   host: env.REDIS_HOST,
   port: env.REDIS_PORT,
   maxRetriesPerRequest: null,
 })
+
+type TokenPayload = { tokenId: Token['id'] }
 
 const db = createPrismaClient()
 
@@ -29,39 +35,46 @@ const networksConfig = await getNetworksConfig({
   logger,
 })
 
+const sourceQueue = buildSingleQueue<TokenPayload>({ connection, logger })
+
 const lists = [
   {
     tag: '1INCH',
     url: 'https://tokens.1inch.eth.link',
   },
-  // {
-  //   tag: 'AAVE',
-  //   url: 'http://tokenlist.aave.eth.link',
-  // },
-  // {
-  //   tag: 'MYCRYPTO',
-  //   url: 'https://uniswap.mycryptoapi.com/',
-  // },
-  // {
-  //   tag: 'SUPERCHAIN',
-  //   url: 'https://static.optimism.io/optimism.tokenlist.json',
-  // },
+  {
+    tag: 'AAVE',
+    url: 'http://tokenlist.aave.eth.link',
+  },
 ]
+const deploymentRoutingInbox = setupQueue<TokenPayload>({
+  name: 'DeploymentRoutingInbox',
+  connection,
+})
 
-const tokenListSources = lists.map(({ tag, url }) => ({
-  source: buildTokenListSource({
-    tag,
-    url,
-    logger,
-    db,
-  }),
-  name: `TokenList:${tag}`,
-}))
+// Routed per chain id
+const deploymentProcessors = networksConfig
+  .filter(withExplorer)
+  .map((networkConfig) => {
+    const processor = buildDeploymentSource({ logger, db, networkConfig })
 
-const deploymentQueue = buildRoutedQueue<{ tokenId: string }, number>({
+    const bus = sourceQueue({
+      name: `DeploymentProcessor:${networkConfig.chainId}`,
+      processor: (job) => {
+        return processor(job.data.tokenId)
+      },
+    })
+
+    return {
+      queue: bus.queue,
+      processor,
+      routingKey: networkConfig.chainId,
+    }
+  })
+
+routed<TokenPayload, number>({
   connection,
   logger,
-  queueName: 'DeploymentQueue',
   extractRoutingKey: async (event) => {
     const token = await db.token.findFirstOrThrow({
       where: { id: event.tokenId },
@@ -70,72 +83,91 @@ const deploymentQueue = buildRoutedQueue<{ tokenId: string }, number>({
 
     return token.network.chainId
   },
-})(
-  networksConfig.filter(withExplorer).map((networkConfig) => {
-    return {
-      name: `DeploymentProcessor:${networkConfig.chainId}`,
-      source: async (job) =>
-        buildDeploymentSource({ logger, db, networkConfig })(job.data.tokenId),
-      routingKey: networkConfig.chainId,
-    }
+})(deploymentRoutingInbox, deploymentProcessors)
+
+const tokenUpdateInbox = setupQueue<TokenPayload>({
+  name: 'TokenUpdateInbox',
+  connection,
+})
+
+forward({ connection, logger })(tokenUpdateInbox, deploymentRoutingInbox)
+
+// const tokenUpdateQueue = wrapTokenQueue(tokenUpdateQueueRaw.queue)
+
+// const coingeckoSource = buildCoingeckoSource({
+//   logger,
+//   db,
+//   queue: tokenUpdateQueue,
+// })
+const axelarConfigSource = buildAxelarConfigSource({ logger, db })
+const wormholeSource = buildWormholeSource({ logger, db })
+const orbitSource = buildOrbitSource({ logger, db })
+const tokenListSources = lists.map(({ tag, url }) =>
+  sourceQueue({
+    processor: buildTokenListSource({
+      tag,
+      url,
+      logger,
+      db,
+    }),
+    name: `TokenListProcessor:${tag}`,
   }),
 )
 
-const tokenUpdateQueueRaw = buildFanOutQueue<{ tokenId: string }>({
-  connection,
-  logger,
-  queueName: 'TokenUpdateQueue',
-})([
-  {
-    name: 'DeploymentRoutingQueue',
-    source: async (job) => {
-      await deploymentQueue.queue.add(job.name, job.data)
-    },
-  },
-])
-
-const tokenUpdateQueue = wrapTokenQueue(tokenUpdateQueueRaw.queue)
-
-const coingeckoSource = buildCoingeckoSource({
-  logger,
-  db,
-  queue: tokenUpdateQueue,
+// Independent queues
+const axelarConfigQueue = sourceQueue({
+  name: 'AxelarConfigProcessor',
+  processor: axelarConfigSource,
 })
 
-const refreshQueue = buildFanOutQueue({
-  connection,
-  logger,
-  queueName: 'RefreshQueue',
-})([
-  {
-    name: 'CoingeckoProcessor',
-    source: coingeckoSource,
-  },
-  // ...tokenListSources,
-])
+const wormholeQueue = sourceQueue({
+  name: 'WormholeProcessor',
+  processor: wormholeSource,
+})
 
-refreshQueue.queue.add('RefreshSignal', {})
+const orbitQueue = sourceQueue({
+  name: 'OrbitProcessor',
+  processor: orbitSource,
+})
+
+const independentSources = [
+  axelarConfigQueue,
+  wormholeQueue,
+  orbitQueue,
+  ...tokenListSources,
+]
+
+const refreshInbox = setupQueue({
+  name: 'RefreshInbox',
+  connection,
+})
+
+fanOut({ connection, logger })(
+  refreshInbox,
+  independentSources.map((q) => q.queue),
+)
 
 const serverAdapter = new ExpressAdapter()
 serverAdapter.setBasePath('/admin/queues')
 
-const allqueues = [
-  refreshQueue.queue,
-  refreshQueue.processorBus.map((q) => q.queue),
-  tokenUpdateQueueRaw.queue,
-  tokenUpdateQueueRaw.processorBus.map((q) => q.queue),
-  deploymentQueue.queue,
-  deploymentQueue.routedBuses.map((q) => q.queue),
+const allQueues = [
+  deploymentRoutingInbox,
+  tokenUpdateInbox,
+  refreshInbox,
+  ...independentSources.map((q) => q.queue),
 ].flat()
 
 createBullBoard({
-  queues: allqueues.map((q) => new BullMQAdapter(q)),
+  queues: allQueues.map((q) => new BullMQAdapter(q)),
   serverAdapter: serverAdapter,
 })
 
 const app = express()
 
 app.use('/admin/queues', serverAdapter.getRouter())
+app.get('/refresh', () => {
+  refreshInbox.add('RefreshSignal', {})
+})
 
 // other configurations of your server
 

@@ -19,6 +19,7 @@ export function setupWorker<
 }) {
   const worker = new Worker(queue.name, processor, {
     connection,
+    concurrency: 5,
   })
 
   if (logger) {

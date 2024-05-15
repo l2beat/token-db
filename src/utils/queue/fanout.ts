@@ -9,12 +9,12 @@ import { Redis } from 'ioredis'
  *        \____ A.3
  *
  */
-export function linkFanOutDistribution({
+export function fanOut({
   connection,
   logger,
 }: { connection: Redis; logger: Logger }) {
   return (from: Queue, to: Queue[]) => {
-    logger = logger.for('FanOutLinker').tag(from.name)
+    logger = logger.for('QueueRouter')
 
     const fanOutWorker = new Worker(
       from.name,
@@ -26,7 +26,7 @@ export function linkFanOutDistribution({
       { connection },
     )
 
-    logger.info('Linked queues', {
+    logger.info('Fan-out rule set', {
       from: from.name,
       to: to.map((queue) => queue.name),
     })
