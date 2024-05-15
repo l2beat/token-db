@@ -17,7 +17,7 @@ export function forward<Event>({
   logger: Logger
 }) {
   return (from: Queue<Event>, to: Queue<Event>) => {
-    logger = logger.for('Forward')
+    logger = logger.for('QueueRouter')
 
     const forwardWorker = setupWorker({
       queue: from,
