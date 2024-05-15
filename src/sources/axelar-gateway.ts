@@ -1,9 +1,9 @@
 import { assert, Logger } from '@l2beat/backend-tools'
-import { nanoid } from 'nanoid'
 import { SetRequired } from 'type-fest'
-import { isAddress, parseAbiItem } from 'viem'
+import { createPublicClient, http, isAddress, parseAbiItem } from 'viem'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
+import { upsertManyTokensWithMeta } from '../db/helpers.js'
 
 export { buildAxelarGatewaySource }
 
@@ -51,7 +51,13 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
 
     logger.info(`Syncing tokens from Axelar Gateway on ${network.name}...`)
     try {
-      const logs = await networkConfig.publicClient.getLogs({
+      const url = network.rpcs.at(0)?.url
+      assert(url, 'Expected network to have at least one rpc')
+      const client = createPublicClient({
+        transport: http(url),
+      })
+
+      const logs = await client.getLogs({
         event: parseAbiItem(
           'event TokenDeployed(string symbol, address tokenAddresses)',
         ),
@@ -69,47 +75,14 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
           } => !!log.args.tokenAddresses,
         )
         .map((log) => ({
-          token: {
-            networkId: network.id,
-            address: log.args.tokenAddresses,
-          },
-          tokenMeta: {
-            source: 'axelar-gateway' as const,
-            symbol: log.args.symbol,
-            externalId: `${log.transactionHash}-${log.logIndex.toString()}`,
-          },
+          networkId: network.id,
+          address: log.args.tokenAddresses,
+          source: 'axelar-gateway' as const,
+          symbol: log.args.symbol,
+          externalId: `${log.transactionHash}-${log.logIndex.toString()}`,
         }))
 
-      await db.token.upsertMany({
-        data: tokens.map(({ token }) => ({
-          id: nanoid(),
-          ...token,
-        })),
-        conflictPaths: ['networkId', 'address'],
-      })
-
-      const tokenIds = await db.token.findMany({
-        select: { id: true, networkId: true, address: true },
-        where: {
-          OR: tokens.map(({ token }) => ({
-            networkId: token.networkId,
-            address: token.address,
-          })),
-        },
-      })
-
-      await db.tokenMeta.upsertMany({
-        data: tokens.map(({ token, tokenMeta }) => ({
-          id: nanoid(),
-          // biome-ignore lint/style/noNonNullAssertion: data must be there
-          tokenId: tokenIds.find(
-            (t) =>
-              t.networkId === token.networkId && t.address === token.address,
-          )!.id,
-          ...tokenMeta,
-        })),
-        conflictPaths: ['tokenId', 'source'],
-      })
+      await upsertManyTokensWithMeta(db, tokens)
 
       logger.info(
         `Synced ${tokens.length} tokens from Axelar Gateway on ${network.name}`,

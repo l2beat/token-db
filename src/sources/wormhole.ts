@@ -6,6 +6,7 @@ import { env } from '../env.js'
 import { SourceContext } from './source.js'
 import { nanoid } from 'nanoid'
 import { assert } from '@l2beat/backend-tools'
+import { upsertTokenWithMeta } from '../db/helpers.js'
 
 export function buildWormholeSource({ logger, db }: SourceContext) {
   logger = logger.for('WormholeSource')
@@ -89,44 +90,14 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
         continue
       }
 
-      const { id: sourceTokenId } = await db.token.upsert({
-        select: { id: true },
-        where: {
-          networkId_address: {
-            networkId: sourceChain.id,
-            address: getAddress(token.address),
-          },
-        },
-        create: {
-          id: nanoid(),
-          networkId: sourceChain.id,
-          address: getAddress(token.address),
-        },
-        update: {},
-      })
-
-      await db.tokenMeta.upsert({
-        where: {
-          tokenId_source: {
-            tokenId: sourceTokenId,
-            source: 'wormhole',
-          },
-        },
-        create: {
-          id: nanoid(),
-          tokenId: sourceTokenId,
-          source: 'wormhole',
-          externalId: token.address,
-          symbol: token.symbol,
-          name: token.name,
-          logoUrl: token.logo,
-        },
-        update: {
-          externalId: token.address,
-          symbol: token.symbol,
-          name: token.name,
-          logoUrl: token.logo,
-        },
+      const { tokenId: sourceTokenId } = await upsertTokenWithMeta(db, {
+        networkId: sourceChain.id,
+        address: getAddress(token.address),
+        source: 'wormhole',
+        externalId: token.address,
+        symbol: token.symbol,
+        name: token.name,
+        logoUrl: token.logo,
       })
 
       for (const wrapped of token.chains) {
@@ -134,44 +105,14 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
           (chain) => chain.wormholeId && chain.wormholeId === wrapped.chain,
         )
         if (destinationChain) {
-          const { id: targetTokenId } = await db.token.upsert({
-            select: { id: true },
-            where: {
-              networkId_address: {
-                networkId: destinationChain.id,
-                address: getAddress(wrapped.address),
-              },
-            },
-            create: {
-              id: nanoid(),
-              networkId: destinationChain.id,
-              address: getAddress(wrapped.address),
-            },
-            update: {},
-          })
-
-          await db.tokenMeta.upsert({
-            where: {
-              tokenId_source: {
-                tokenId: targetTokenId,
-                source: 'wormhole',
-              },
-            },
-            create: {
-              id: nanoid(),
-              tokenId: targetTokenId,
-              source: 'wormhole',
-              externalId: token.address,
-              symbol: token.symbol,
-              name: token.name,
-              logoUrl: token.logo,
-            },
-            update: {
-              externalId: token.address,
-              symbol: token.symbol,
-              name: token.name,
-              logoUrl: token.logo,
-            },
+          const { tokenId: targetTokenId } = await upsertTokenWithMeta(db, {
+            networkId: destinationChain.id,
+            address: getAddress(wrapped.address),
+            source: 'wormhole',
+            externalId: token.address,
+            symbol: token.symbol,
+            name: token.name,
+            logoUrl: token.logo,
           })
 
           await db.tokenBridge.upsert({

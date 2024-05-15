@@ -2,8 +2,8 @@ import { Logger, assert } from '@l2beat/backend-tools'
 import { z } from 'zod'
 
 import { zodFetch } from '../utils/zod-fetch.js'
-import { nanoid } from 'nanoid'
 import { PrismaClient } from '../db/prisma.js'
+import { upsertManyTokensWithMeta } from '../db/helpers.js'
 
 export { buildCoingeckoSource }
 
@@ -61,60 +61,17 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
         token.platforms
           .filter((platform) => platform.address.length > 0)
           .map((platform) => ({
-            token: {
-              networkId: platform.network.id,
-              address: platform.address,
-              network: platform.network,
-            },
-            tokenMeta: {
-              externalId: token.id,
-              symbol: token.symbol,
-              name: token.name,
-              // Code-level constraint?
-              source: 'COINGECKO',
-            },
+            networkId: platform.network.id,
+            address: platform.address,
+            externalId: token.id,
+            symbol: token.symbol,
+            name: token.name,
+            // Code-level constraint?
+            source: 'COINGECKO',
           })),
       )
 
-    await db.token.upsertMany({
-      data: tokens.map(({ token }) => ({
-        id: nanoid(),
-        networkId: token.networkId,
-        address: token.address,
-      })),
-      conflictPaths: ['networkId', 'address'],
-    })
-
-    const tokenIds = await db.token.findMany({
-      select: { id: true, networkId: true, address: true },
-      where: {
-        OR: tokens.map(({ token }) => ({
-          AND: {
-            networkId: token.networkId,
-            address: token.address,
-          },
-        })),
-      },
-    })
-
-    const data = tokens.map(({ token, tokenMeta }) => {
-      const tokenId = tokenIds.find(
-        (t) => t.networkId === token.networkId && t.address === token.address,
-      )?.id
-
-      assert(tokenId, 'Expected tokenId')
-
-      return {
-        id: nanoid(),
-        tokenId: tokenId,
-        ...tokenMeta,
-      }
-    })
-
-    await db.tokenMeta.upsertMany({
-      data,
-      conflictPaths: ['tokenId', 'source'],
-    })
+    await upsertManyTokensWithMeta(db, tokens)
 
     logger.info(`Synced ${tokens.length} tokens from Coingecko`)
   }
