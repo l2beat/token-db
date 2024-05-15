@@ -34,11 +34,11 @@ export function buildFanOutQueue<Event = void>({
       return { queue, worker }
     })
 
-    linkFanOutDistribution({ connection, logger })(
+    const worker = linkFanOutDistribution({ connection, logger })(
       mainQueue,
       processorBus.map(({ queue }) => queue),
     )
 
-    return mainQueue
+    return { queue: mainQueue, worker: worker, processorBus }
   }
 }

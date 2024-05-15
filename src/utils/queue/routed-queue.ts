@@ -58,11 +58,24 @@ export function buildRoutedQueue<Event, RoutingKey extends string | number>({
         if (queue) {
           await queue.add(job.name, job.data)
         } else {
-          logger.warn('No queue for routing key', { routingKey })
+          logger.debug('No queue for routing key', { routingKey })
         }
       },
     })
 
-    return { queue: ingestQueue, worker: routingWorker }
+    const mapToLog = Object.fromEntries(
+      Array.from(queueMap.entries()).map(([key, queue]) => [key, queue.name]),
+    )
+
+    logger.info('Routed queue created', {
+      from: queueName,
+      routing: mapToLog,
+    })
+
+    return {
+      queue: ingestQueue,
+      worker: routingWorker,
+      routedBuses: processorBus,
+    }
   }
 }

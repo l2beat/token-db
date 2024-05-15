@@ -33,11 +33,11 @@ function setupLogging<DataType, ResultType, NameType extends string>({
   logger,
 }: { worker: Worker<DataType, ResultType, NameType>; logger: Logger }) {
   worker.on('active', (job) => {
-    logger.info('Starting job', { id: job.id, name: job.name })
+    logger.debug('Event processing job', { id: job.id, event: job.name })
   })
 
   worker.on('completed', (job) => {
-    logger.info('Job done', { id: job.id, name: job.name })
+    logger.debug('Event processing done', { id: job.id, eve: job.name })
   })
 
   worker.on('error', (error) => {
@@ -48,9 +48,9 @@ function setupLogging<DataType, ResultType, NameType extends string>({
     const hasStalled = !job
 
     if (hasStalled) {
-      logger.error('Job stalled')
+      logger.error('Event processing stalled')
     } else {
-      logger.error('Job failed', { id: job.id, name: job.name })
+      logger.error('Event processing failed', { id: job.id, name: job.name })
     }
   })
 }

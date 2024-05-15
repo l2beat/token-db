@@ -1,4 +1,8 @@
+import { createBullBoard } from '@bull-board/api'
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js'
+import { ExpressAdapter } from '@bull-board/express'
 import { Logger } from '@l2beat/backend-tools'
+import express from 'express'
 import { Redis } from 'ioredis'
 import { createPrismaClient } from './db/prisma.js'
 import { env } from './env.js'
@@ -30,18 +34,18 @@ const lists = [
     tag: '1INCH',
     url: 'https://tokens.1inch.eth.link',
   },
-  {
-    tag: 'AAVE',
-    url: 'http://tokenlist.aave.eth.link',
-  },
-  {
-    tag: 'MYCRYPTO',
-    url: 'https://uniswap.mycryptoapi.com/',
-  },
-  {
-    tag: 'SUPERCHAIN',
-    url: 'https://static.optimism.io/optimism.tokenlist.json',
-  },
+  // {
+  //   tag: 'AAVE',
+  //   url: 'http://tokenlist.aave.eth.link',
+  // },
+  // {
+  //   tag: 'MYCRYPTO',
+  //   url: 'https://uniswap.mycryptoapi.com/',
+  // },
+  // {
+  //   tag: 'SUPERCHAIN',
+  //   url: 'https://static.optimism.io/optimism.tokenlist.json',
+  // },
 ]
 
 const tokenListSources = lists.map(({ tag, url }) => ({
@@ -57,7 +61,7 @@ const tokenListSources = lists.map(({ tag, url }) => ({
 const deploymentQueue = buildRoutedQueue<{ tokenId: string }, number>({
   connection,
   logger,
-  queueName: 'DeploymentIngestQueue',
+  queueName: 'DeploymentQueue',
   extractRoutingKey: async (event) => {
     const token = await db.token.findFirstOrThrow({
       where: { id: event.tokenId },
@@ -69,7 +73,7 @@ const deploymentQueue = buildRoutedQueue<{ tokenId: string }, number>({
 })(
   networksConfig.filter(withExplorer).map((networkConfig) => {
     return {
-      name: `Deployment:${networkConfig.chainId}`,
+      name: `DeploymentProcessor:${networkConfig.chainId}`,
       source: async (job) =>
         buildDeploymentSource({ logger, db, networkConfig })(job.data.tokenId),
       routingKey: networkConfig.chainId,
@@ -90,7 +94,7 @@ const tokenUpdateQueueRaw = buildFanOutQueue<{ tokenId: string }>({
   },
 ])
 
-const tokenUpdateQueue = wrapTokenQueue(tokenUpdateQueueRaw)
+const tokenUpdateQueue = wrapTokenQueue(tokenUpdateQueueRaw.queue)
 
 const coingeckoSource = buildCoingeckoSource({
   logger,
@@ -104,9 +108,39 @@ const refreshQueue = buildFanOutQueue({
   queueName: 'RefreshQueue',
 })([
   {
-    name: 'Coingecko',
+    name: 'CoingeckoProcessor',
     source: coingeckoSource,
   },
+  // ...tokenListSources,
 ])
 
-refreshQueue.add('RefreshSignal', {})
+refreshQueue.queue.add('RefreshSignal', {})
+
+const serverAdapter = new ExpressAdapter()
+serverAdapter.setBasePath('/admin/queues')
+
+const allqueues = [
+  refreshQueue.queue,
+  refreshQueue.processorBus.map((q) => q.queue),
+  tokenUpdateQueueRaw.queue,
+  tokenUpdateQueueRaw.processorBus.map((q) => q.queue),
+  deploymentQueue.queue,
+  deploymentQueue.routedBuses.map((q) => q.queue),
+].flat()
+
+createBullBoard({
+  queues: allqueues.map((q) => new BullMQAdapter(q)),
+  serverAdapter: serverAdapter,
+})
+
+const app = express()
+
+app.use('/admin/queues', serverAdapter.getRouter())
+
+// other configurations of your server
+
+app.listen(3000, () => {
+  console.log('Running on 3000...')
+  console.log('For the UI, open http://localhost:3000/admin/queues')
+  console.log('Make sure Redis is running on port 6379 by default')
+})
