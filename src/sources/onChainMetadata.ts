@@ -79,7 +79,7 @@ function buildOnChainMetadataSource({
       name: token.name,
       symbol: token.symbol,
       decimals: token.decimals,
-      source: 'ONCHAIN',
+      source: 'onchain',
     }))
 
     logger.info('Inserting tokens', { count: tokens.length })
