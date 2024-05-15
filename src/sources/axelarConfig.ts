@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { upsertTokenWithMeta } from '../db/helpers.js'
 import { env } from '../env.js'
-import { zodFetch } from '../utils/zod-fetch.js'
+import { zodFetch } from '../utils/zodFetch.js'
 import { SourceContext } from './source.js'
 
 export function buildAxelarConfigSource({ logger, db }: SourceContext) {

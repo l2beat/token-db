@@ -2,7 +2,7 @@ import { Logger } from '@l2beat/backend-tools'
 import { z } from 'zod'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
-import { zodFetch } from '../utils/zod-fetch.js'
+import { zodFetch } from '../utils/zodFetch.js'
 
 export { buildTokenListSource }
 
