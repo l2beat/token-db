@@ -1,21 +1,4 @@
 services:
-  # postgres:
-  #   command: postgres --fsync=off --synchronous_commit=off --full_page_writes=off
-  #   image: postgres:15.0-alpine
-  #   environment:
-  #     POSTGRES_USER: '${DB_USERNAME}'
-  #     PGUSER: '${DB_USERNAME}'
-  #     POSTGRES_PASSWORD: '${DB_PASSWORD}'
-  #     POSTGRES_DB: '${DB_DATABASE}'
-  #   ports:
-  #     - '5432:5432'
-  #   healthcheck:
-  #     test: ['CMD-SHELL', 'pg_isready']
-  #     start_period: 3s
-  #     interval: 1s
-  #     timeout: 3s
-  #     retries: 7
-
   redis:
     image: redis:latest
     ports:
