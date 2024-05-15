@@ -21,11 +21,6 @@ model BridgeEscrow {
   @@unique([networkId, address])
 }
 
-enum BridgeType {
-  Canonical
-  External
-}
-
 enum ExternalBridgeType {
   Axelar
   LayerZeroV1
