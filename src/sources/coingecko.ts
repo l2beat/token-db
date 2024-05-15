@@ -13,7 +13,7 @@ type Dependencies = {
 }
 
 function buildCoingeckoSource({ db, logger }: Dependencies) {
-  logger = logger.for('CoinGecko')
+  logger = logger.for('CoingeckoSource')
 
   return async function () {
     logger.info(`Syncing tokens from Coingecko...`)
