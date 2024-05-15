@@ -1,9 +1,9 @@
-import { Logger, assert } from '@l2beat/backend-tools'
+import { assert, Logger } from '@l2beat/backend-tools'
 import { z } from 'zod'
 
-import { zodFetch } from '../utils/zod-fetch.js'
-import { PrismaClient } from '../db/prisma.js'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
+import { PrismaClient } from '../db/prisma.js'
+import { zodFetch } from '../utils/zod-fetch.js'
 
 export { buildCoingeckoSource }
 
@@ -16,10 +16,12 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
   logger = logger.for('CoinGecko')
 
   return async function () {
+    logger.info(`Syncing tokens from Coingecko...`)
     const res = await zodFetch(
       'https://api.coingecko.com/api/v3/coins/list?include_platform=true',
       coingeckoResponseSchema,
     )
+    logger.info('Coingecko token list fetched', { count: res.length })
 
     const networks = await db.network
       .findMany({
@@ -71,6 +73,7 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
           })),
       )
 
+    logger.info('Inserting tokens', { count: tokens.length })
     await upsertManyTokensWithMeta(db, tokens)
 
     logger.info(`Synced ${tokens.length} tokens from Coingecko`)

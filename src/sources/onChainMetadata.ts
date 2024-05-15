@@ -1,10 +1,10 @@
 import { Logger } from '@l2beat/backend-tools'
 
 import { getContract, parseAbiItem } from 'viem'
+import { upsertManyTokenMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
 import { notUndefined } from '../utils/notUndefined.js'
-import { upsertManyTokenMeta } from '../db/helpers.js'
 
 export { buildOnChainMetadataSource }
 
@@ -28,7 +28,7 @@ function buildOnChainMetadataSource({
   logger = logger.for('onChainMetadata').tag(networkConfig.name)
 
   return async function () {
-    logger.info(`Syncing tokens metadata on ${networkConfig.name}...`)
+    logger.info(`Syncing tokens metadata...`)
     const tokens = await db.token.findMany({
       where: {
         network: {
@@ -82,10 +82,9 @@ function buildOnChainMetadataSource({
       source: 'ONCHAIN',
     }))
 
+    logger.info('Inserting tokens', { count: tokens.length })
     await upsertManyTokenMeta(db, data)
 
-    logger.info(
-      `Synced ${data.length} tokens metadata on ${networkConfig.name}`,
-    )
+    logger.info(`Synced ${data.length} tokens metadata`)
   }
 }

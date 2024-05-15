@@ -1,29 +1,28 @@
 import { assert } from '@l2beat/backend-tools'
 import { z } from 'zod'
 
-import { SourceContext } from './source.js'
-import { zodFetch } from '../utils/zod-fetch.js'
-import { env } from '../env.js'
 import { nanoid } from 'nanoid'
 import { upsertTokenWithMeta } from '../db/helpers.js'
+import { env } from '../env.js'
+import { zodFetch } from '../utils/zod-fetch.js'
+import { SourceContext } from './source.js'
 
 export function buildAxelarConfigSource({ logger, db }: SourceContext) {
+  logger = logger.for('AxelarConfigSource')
+
   return async () => {
-    logger = logger.for('AxelarConfigSource')
+    logger.info(`Syncing tokens from Axelar config...`)
 
     const configUrl = env.AXELAR_CONFIG_URL
 
     if (!configUrl) {
-      logger.warn('Axelar config URL not set, skipping source')
+      logger.info(`Syncing tokens from Axelar config skipped`)
       return
     }
-
-    logger.info('Fetching Axelar config')
 
     const parsed = await zodFetch(configUrl, configResponseSchema)
 
     logger.info('Upserting bridge info')
-
     const { id: bridgeId } = await db.bridge.upsert({
       select: { id: true },
       where: {
@@ -165,7 +164,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         })
       }
     }
-    logger.info('Finished processing')
+    logger.info(`Synced tokens from Axelar config`)
   }
 }
 

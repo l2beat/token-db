@@ -1,8 +1,8 @@
 import { Logger } from '@l2beat/backend-tools'
-import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
-import { PrismaClient } from '../db/prisma.js'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
+import { PrismaClient } from '../db/prisma.js'
+import { zodFetch } from '../utils/zod-fetch.js'
 
 export { buildTokenListSource }
 
@@ -17,6 +17,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
   logger = logger.for('TokenListSource').tag(`${tag}`)
 
   return async function () {
+    logger.info(`Syncing tokens from token list...`)
     const result = await zodFetch(url, TokenList)
 
     logger.info('Token list fetched', { count: result.tokens.length })
@@ -51,10 +52,9 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
     }
 
     logger.info('Inserting tokens', { count: tokens.length })
-
     await upsertManyTokensWithMeta(db, tokens)
 
-    logger.info('Token list processed')
+    logger.info(`Synced ${tokens.length} tokens for token list`)
   }
 }
 

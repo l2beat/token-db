@@ -8,13 +8,13 @@ import { createPrismaClient } from './db/prisma.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildDeploymentSource } from './sources/deployment.js'
+import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { getTokensForChain } from './utils/getTokensForChain.js'
-import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 
 const db = createPrismaClient()
 
