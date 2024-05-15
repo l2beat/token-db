@@ -13,6 +13,7 @@ import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
+import { getTokensForChain } from './utils/getTokensForChain.js'
 
 const db = createPrismaClient()
 
@@ -77,15 +78,51 @@ const wormholeSource = buildWormholeSource({ logger, db })
 
 const orbitSource = buildOrbitSource({ logger, db })
 
-const deploymentSources = networksConfig
-  .filter(withExplorer)
-  .map((networkConfig) =>
-    buildDeploymentSource({
-      logger,
-      db,
-      networkConfig,
+const pipeline = [
+  coingeckoSource,
+  ...tokenListSources,
+  ...axelarGatewaySources,
+  ...onChainMetadataSources,
+  axelarConfigSource,
+  wormholeSource,
+  orbitSource,
+]
+
+for (const step of pipeline) {
+  try {
+    await step()
+  } catch (e) {
+    logger.error('Failed to run step', { error: e })
+  }
+}
+
+const deploymentSources = (
+  await Promise.all(
+    networksConfig.filter(withExplorer).map(async (networkConfig) => {
+      logger.info(`Running deployment source`, {
+        chain: networkConfig.name,
+      })
+
+      const tokens = await getTokensForChain({
+        db,
+        networkConfig,
+      })
+
+      logger.info(`Getting deployments info for tokens`, {
+        count: tokens.length,
+      })
+
+      return tokens.map((token) =>
+        buildDeploymentSource({
+          logger,
+          db,
+          networkConfig,
+          token,
+        }),
+      )
     }),
   )
+).flat()
 
 const arbitrumCanonicalSource = buildArbitrumCanonicalSource({
   logger,
@@ -99,22 +136,14 @@ const optimismCanonicalSource = buildOptimismCanonicalSource({
   networksConfig,
 })
 
-const pipeline = [
-  coingeckoSource,
-  ...tokenListSources,
-  ...axelarGatewaySources,
-  ...onChainMetadataSources,
-  axelarConfigSource,
-  wormholeSource,
+const dependedPipeline = [
   ...deploymentSources,
-  orbitSource,
-
   // those 2 have to be after deployment sources
   arbitrumCanonicalSource,
   optimismCanonicalSource,
 ]
 
-for (const step of pipeline) {
+for (const step of dependedPipeline) {
   try {
     await step()
   } catch (e) {
