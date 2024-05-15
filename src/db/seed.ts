@@ -19,10 +19,10 @@ import {
 } from 'viem/chains'
 import { z } from 'zod'
 import { env } from '../env.js'
-import { notUndefined } from '../utils/notUndefined.js'
-import { zodFetch } from '../utils/zod-fetch.js'
-import { createPrismaClient } from './prisma.js'
 import { isExplorerType } from '../utils/isExplorerType.js'
+import { notUndefined } from '../utils/notUndefined.js'
+import { zodFetch } from '../utils/zodFetch.js'
+import { createPrismaClient } from './prisma.js'
 
 export const chainsConfig = [
   arbitrum,
@@ -41,7 +41,7 @@ export const chainsConfig = [
   zora,
 ]
 
-const networksResponseSchema = z.array(
+const NetworksResponse = z.array(
   z.object({
     id: z.string(),
     chain_identifier: z.number().nullable(),
@@ -58,7 +58,7 @@ async function seed() {
 
   const networks = await zodFetch(
     `https://pro-api.coingecko.com/api/v3/asset_platforms?x_cg_pro_api_key=${env.COINGECKO_KEY}`,
-    networksResponseSchema,
+    NetworksResponse,
   )
 
   const desiredNetworks = intersectionWith(

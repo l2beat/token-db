@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { chunkUpsert } from './chunk-upsert.js'
+import { chunkUpsert } from './chunkUpsert.js'
 
 test('correctly chunks an array', () => {
   expect(

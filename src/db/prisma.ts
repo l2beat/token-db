@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient as VanillaPrismaClient } from '@prisma/client'
-import { env } from '../env.js'
 import pick from 'lodash/pick.js'
-import { chunkUpsert } from '../utils/chunk-upsert.js'
+import { env } from '../env.js'
+import { chunkUpsert } from '../utils/chunkUpsert.js'
 
 export const createPrismaClient = () =>
   new VanillaPrismaClient({

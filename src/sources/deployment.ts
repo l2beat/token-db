@@ -3,10 +3,10 @@ import { Token } from '@prisma/client'
 import { nanoid } from 'nanoid'
 import { setTimeout } from 'timers/promises'
 import { PublicClient } from 'viem'
+import { upsertTokenMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkExplorerClient } from '../utils/explorers/index.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
-import { upsertTokenMeta } from '../db/helpers.js'
 
 type Dependencies = {
   logger: Logger
@@ -25,9 +25,13 @@ export function buildDeploymentSource({
   networkConfig,
   token,
 }: Dependencies) {
-  logger = logger.for('DeploymentSource').tag(networkConfig.name).tag(token.id)
+  logger = logger
+    .for('DeploymentSource')
+    .tag(networkConfig.name)
+    .tag(token.address)
 
   return async function () {
+    logger.info(`Syncing token deployment info...`)
     const getDeployment = getDeploymentDataWithRetries(
       networkConfig.explorerClient,
       networkConfig.publicClient,
@@ -38,7 +42,7 @@ export function buildDeploymentSource({
 
     await upsertTokenMeta(db, {
       tokenId: token.id,
-      source: 'DEPLOYMENT',
+      source: 'deployment',
       externalId: deploymentInfo.txHash,
       contractName: metaInfo.contractName,
     })
@@ -55,7 +59,7 @@ export function buildDeploymentSource({
       },
     })
 
-    logger.info('Deployment info processed')
+    logger.info(`Synced token deployment info`)
   }
 }
 

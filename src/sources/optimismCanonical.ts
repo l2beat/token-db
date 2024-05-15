@@ -6,14 +6,12 @@ import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
 import { notUndefined } from '../utils/notUndefined.js'
 
-export { buildArbitrumCanonicalSource }
+export { buildOptimismCanonicalSource }
 
-const ARB_RETRYABLE_TX = '0x000000000000000000000000000000000000006E'
-const L2_ERC20_GATEWAY = '0x09e9222E96E7B4AE2a407B98d48e330053351EEe'
+const OPTIMISM_BRIDGE_3 = '0x4200000000000000000000000000000000000012'
+const OVM_TOKEN_FACTORY = '0x2e985AcD6C8Fa033A4c5209b0140940E24da7C5C'
 
-const abi = [
-  parseAbiItem('function l1Address() external view returns (address)'),
-]
+const abi = [parseAbiItem('function l1Token() external view returns (address)')]
 
 type Dependencies = {
   logger: Logger
@@ -21,38 +19,38 @@ type Dependencies = {
   networksConfig: NetworkConfig[]
 }
 
-function buildArbitrumCanonicalSource({
+function buildOptimismCanonicalSource({
   db,
   logger,
   networksConfig,
 }: Dependencies) {
-  logger = logger.for('ArbitrumCanonical')
+  logger = logger.for('OptimismCanonicalSource')
 
   return async function () {
-    logger.info(`Syncing Arbitrum canonical tokens data...`)
+    logger.info(`Syncing Optimism canonical tokens data...`)
 
-    const arbitrumClient = networksConfig.find(
-      (c) => c.name === 'Arbitrum One',
+    const optimismClient = networksConfig.find(
+      (c) => c.name === 'Optimism',
     )?.publicClient
-    assert(arbitrumClient, 'Arbitrum One client not found')
+    assert(optimismClient, 'Optimism client not found')
 
-    const arbitrumNetwork = await db.network.findFirst({
+    const optimismNetwork = await db.network.findFirst({
       select: { id: true },
       where: {
-        name: 'Arbitrum One',
+        name: 'Optimism',
       },
     })
-    assert(arbitrumNetwork, 'Arbitrum One network not found')
+    assert(optimismNetwork, 'Optimism network not found')
 
     logger.info('Upserting bridge info')
     const { id: bridgeId } = await db.bridge.upsert({
       select: { id: true },
       where: {
-        name: 'Arbitrum',
+        name: 'Optimism',
       },
       create: {
         id: nanoid(),
-        name: 'Arbitrum',
+        name: 'Optimism',
       },
       update: {},
     })
@@ -63,27 +61,20 @@ function buildArbitrumCanonicalSource({
           OR: [
             {
               to: {
-                equals: L2_ERC20_GATEWAY,
+                equals: OPTIMISM_BRIDGE_3,
                 mode: 'insensitive',
               },
             },
             {
               to: {
-                equals: ARB_RETRYABLE_TX,
+                equals: OVM_TOKEN_FACTORY,
                 mode: 'insensitive',
               },
             },
           ],
         },
-        metadata: {
-          every: {
-            contractName: {
-              equals: 'ClonableBeaconProxy',
-            },
-          },
-        },
         network: {
-          id: arbitrumNetwork.id,
+          id: optimismNetwork.id,
         },
       },
     })
@@ -94,10 +85,10 @@ function buildArbitrumCanonicalSource({
         const contract = getContract({
           address: token.address as `0x${string}`,
           abi,
-          client: arbitrumClient,
+          client: optimismClient,
         })
 
-        const l1Address = await contract.read.l1Address().catch(() => undefined)
+        const l1Address = await contract.read.l1Token().catch(() => undefined)
         const l1Token = await db.token.findFirst({
           where: {
             network: {
@@ -127,6 +118,6 @@ function buildArbitrumCanonicalSource({
       conflictPaths: ['bridgeId', 'targetTokenId'],
     })
 
-    logger.info(`Synced Arbitrum canonical tokens data...`)
+    logger.info(`Synced Optimism canonical tokens data...`)
   }
 }
