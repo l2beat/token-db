@@ -38,7 +38,7 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
         assert(isAddress(axelarGatewayAddress), 'Expected address')
         return {
           ...result,
-          axelarGatewayAddress: axelarGatewayAddress,
+          axelarGatewayAddress,
         }
       })
 

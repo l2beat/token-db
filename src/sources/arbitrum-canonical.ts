@@ -44,19 +44,6 @@ function buildArbitrumCanonicalSource({
     })
     assert(arbitrumNetwork, 'Arbitrum One network not found')
 
-    logger.info('Upserting bridge info')
-    const { id: bridgeId } = await db.bridge.upsert({
-      select: { id: true },
-      where: {
-        name: 'Arbitrum',
-      },
-      create: {
-        id: nanoid(),
-        name: 'Arbitrum',
-      },
-      update: {},
-    })
-
     const tokens = await db.token.findMany({
       where: {
         deployment: {
@@ -123,8 +110,8 @@ function buildArbitrumCanonicalSource({
     await db.tokenBridge.upsertMany({
       data: tokensBridgeToUpsert
         .filter(notUndefined)
-        .map((t) => ({ id: nanoid(), ...t, bridgeId })),
-      conflictPaths: ['bridgeId', 'targetTokenId'],
+        .map((t) => ({ id: nanoid(), ...t })),
+      conflictPaths: ['targetTokenId'],
     })
 
     logger.info(`Synced Arbitrum canonical tokens data...`)

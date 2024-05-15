@@ -35,14 +35,16 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
 
     logger.info('Upserting bridge info')
 
-    const { id: bridgeId } = await db.bridge.upsert({
+    const { id: externalBridgeId } = await db.externalBridge.upsert({
       select: { id: true },
       where: {
         name: 'Wormhole',
+        type: 'Wormhole',
       },
       create: {
         id: nanoid(),
         name: 'Wormhole',
+        type: 'Wormhole',
       },
       update: {},
     })
@@ -117,16 +119,13 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
 
           await db.tokenBridge.upsert({
             where: {
-              bridgeId_targetTokenId: {
-                bridgeId,
-                targetTokenId,
-              },
+              targetTokenId,
             },
             create: {
               id: nanoid(),
               sourceTokenId,
               targetTokenId,
-              bridgeId,
+              externalBridgeId,
             },
             update: {},
           })
