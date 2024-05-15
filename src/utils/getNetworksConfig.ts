@@ -27,6 +27,8 @@ export async function getNetworksConfig({
 }: Dependencies): Promise<NetworkConfig[]> {
   logger = logger.for('NetworksConfig')
 
+  logger.info(`Getting networks config...`)
+
   const networks = await db.network.findMany({
     include: {
       rpcs: true,
@@ -36,7 +38,7 @@ export async function getNetworksConfig({
 
   const chains = Object.values(viemChains) as viemChains.Chain[]
 
-  return networks
+  const result = networks
     .filter((network) => network.rpcs[0]?.url)
     .map((network) => {
       const chain = chains.find((c) => c.id === network.chainId)
@@ -67,6 +69,8 @@ export async function getNetworksConfig({
       }
     })
     .filter(notUndefined)
+  logger.info(`Getting networks config finished`)
+  return result
 }
 
 export type WithExplorer<T extends NetworkConfig> = T & {
