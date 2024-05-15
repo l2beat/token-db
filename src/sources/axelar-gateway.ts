@@ -1,6 +1,6 @@
 import { assert, Logger } from '@l2beat/backend-tools'
 import { SetRequired } from 'type-fest'
-import { http, createPublicClient, isAddress, parseAbiItem } from 'viem'
+import { isAddress, parseAbiItem } from 'viem'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
@@ -50,13 +50,7 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
     }
 
     try {
-      const url = network.rpcs.at(0)?.url
-      assert(url, 'Expected network to have at least one rpc')
-      const client = createPublicClient({
-        transport: http(url),
-      })
-
-      const logs = await client.getLogs({
+      const logs = await networkConfig.publicClient.getLogs({
         event: parseAbiItem(
           'event TokenDeployed(string symbol, address tokenAddresses)',
         ),

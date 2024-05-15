@@ -19,7 +19,7 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
     logger.info(`Syncing tokens from Coingecko...`)
     const res = await zodFetch(
       'https://api.coingecko.com/api/v3/coins/list?include_platform=true',
-      coingeckoResponseSchema,
+      coingeckoResponse,
     )
     logger.info('Coingecko token list fetched', { count: res.length })
 
@@ -80,7 +80,7 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
   }
 }
 
-const coingeckoResponseSchema = z.array(
+const coingeckoResponse = z.array(
   z.object({
     id: z.string(),
     symbol: z.string(),

@@ -18,7 +18,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
 
   return async function () {
     logger.info(`Syncing tokens from token list...`)
-    const result = await zodFetch(url, TokenList)
+    const result = await zodFetch(url, TokenListResponse)
 
     logger.info('Token list fetched', { count: result.tokens.length })
 
@@ -69,7 +69,7 @@ const TokenInfo = z.strictObject({
   extensions: z.record(z.unknown()).optional(),
 })
 
-const TokenList = z.strictObject({
+const TokenListResponse = z.strictObject({
   name: z.string(),
   timestamp: z.string(),
   version: z.strictObject({

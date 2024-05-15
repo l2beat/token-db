@@ -4,6 +4,7 @@ import { getAddress } from 'viem'
 import { z } from 'zod'
 import { upsertTokenWithMeta } from '../db/helpers.js'
 import { env } from '../env.js'
+import { zodFetch } from '../utils/zod-fetch.js'
 import { SourceContext } from './source.js'
 
 export function buildOrbitSource({ logger, db }: SourceContext) {
@@ -34,9 +35,7 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
         }),
       )
 
-    const res = await fetch(env.ORBIT_LIST_URL)
-    const data = await res.json()
-    const parsed = OrbitResult.parse(data)
+    const res = await zodFetch(env.ORBIT_LIST_URL, OrbitResponse)
 
     logger.info('Upserting bridge info')
     const { id: bridgeId } = await db.bridge.upsert({
@@ -53,7 +52,7 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
 
     let count = 0
 
-    for (const token of parsed.tokenList) {
+    for (const token of res.tokenList) {
       logger.debug('Processing token', { symbol: token.symbol })
       const sourceNetwork = networks.find(
         (chain) => chain.orbitId && chain.orbitId === token.chain,
@@ -135,7 +134,7 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
   }
 }
 
-const OrbitResult = z.object({
+const OrbitResponse = z.object({
   success: z.boolean(),
   tokenList: z.array(
     z.object({
