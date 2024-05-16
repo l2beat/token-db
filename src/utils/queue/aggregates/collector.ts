@@ -51,16 +51,18 @@ export function setupCollector<
     }
 
     try {
-      logger.info('Aggregating events')
+      logger.debug('Aggregating events')
       const aggregatedEvent = aggregate(
-        // biome-ignore lint/style/noNonNullAssertion: <explanation>
+        // biome-ignore lint/style/noNonNullAssertion: checked above
         buffer!.map((entry) => entry.payload),
       )
 
-      logger.info('Sending aggregated event', { event: aggregatedEvent })
-      await outputQueue.add('CollectedEvents', aggregatedEvent)
+      logger.debug('Sending aggregated event to output queue', {
+        event: aggregatedEvent,
+      })
+      await outputQueue.add('AggregatedEvent', aggregatedEvent)
 
-      logger.info('Acknowledging atomic events')
+      logger.debug('Acknowledging atomic events from input queue')
       buffer?.forEach((entry) => entry.resolve())
     } catch {
       buffer?.forEach((entry) =>
@@ -82,37 +84,22 @@ export function setupCollector<
       }
 
       if (!buffer) {
-        logger.info('No buffer, creating new buffer')
+        logger.debug('No buffer, creating new buffer')
         buffer = [entry]
 
         setTimeout(async () => {
-          logger.info('Flushing buffer due to timeout')
+          logger.debug('Flushing buffer due to timeout')
           await flush()
         }, flushInterval)
         return
       }
 
-      logger.info('Adding event to buffer')
+      logger.debug('Adding event to buffer')
 
       buffer.push(entry)
 
-      logger.info('Buffer after adding', {
-        len: buffer.length,
-        bufferSize,
-        buffer,
-        comparison: buffer.length >= bufferSize,
-      })
-
       if (buffer.length >= bufferSize) {
-        // backpressure
-        logger.info('Buffer exists', {
-          len: buffer.length,
-          bufferSize,
-          buffer,
-          comparison: buffer.length >= bufferSize,
-        })
-        logger.info('Buffer full, flushing')
-
+        logger.info('Buffer full, flushing to output queue')
         flush()
       }
     })
