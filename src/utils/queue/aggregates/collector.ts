@@ -1,6 +1,8 @@
 import { Logger } from '@l2beat/backend-tools'
 import { Job, Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
+import { setupWorkerLogging } from '../logging.js'
+import { InferQueueDataType, InferQueueResultType } from '../types.js'
 
 type BufferEntry<T> = {
   payload: T
@@ -8,12 +10,21 @@ type BufferEntry<T> = {
   reject: (error: Error) => void
 }
 
-// TODO: refine types to infer the output from the aggregate function
+/**
+ * Collects events from an input queue and aggregates them into a single event
+ * forwarded to an output queue.
+ * @param inputQueue The queue to collect events from.
+ * @param outputQueue The queue to forward the aggregated event to.
+ * @param aggregate The function to aggregate many input events into one output event.
+ * @param bufferSize The maximum number of events to aggregate before forwarding.
+ * @param flushInterval The maximum time to wait before forwarding the aggregated event.
+ */
 export function setupCollector<
-  InputDataType = unknown,
-  OutputDataType = unknown,
-  InputResultType = unknown,
-  OutputResultType = unknown,
+  InputQueue extends Queue,
+  OutputQueue extends Queue,
+  InputDataType = InferQueueDataType<InputQueue>,
+  OutputDataType = InferQueueDataType<OutputQueue>,
+  InputResultType = InferQueueResultType<InputQueue>,
 >({
   inputQueue,
   outputQueue,
@@ -23,8 +34,8 @@ export function setupCollector<
   connection,
   logger,
 }: {
-  inputQueue: Queue<InputDataType, InputResultType, string>
-  outputQueue: Queue<OutputDataType, OutputResultType, string>
+  inputQueue: InputQueue
+  outputQueue: OutputQueue
   aggregate: (data: InputDataType[]) => OutputDataType
   bufferSize: number
   flushInterval: number
@@ -109,12 +120,11 @@ export function setupCollector<
 
   const worker = new Worker<InputDataType>(inputQueue.name, processor, {
     connection,
-    // +1 here for backpressure triggering
-    concurrency: bufferSize + 1,
+    concurrency: bufferSize,
   })
 
   if (logger) {
-    setupLogging({ worker, logger })
+    setupWorkerLogging({ worker, logger })
   }
 
   logger.info('Collector setup', {
@@ -125,31 +135,4 @@ export function setupCollector<
   })
 
   return worker
-}
-
-function setupLogging<DataType, ResultType, NameType extends string>({
-  worker,
-  logger,
-}: { worker: Worker<DataType, ResultType, NameType>; logger: Logger }) {
-  worker.on('active', (job) => {
-    logger.debug('Event processing job', { id: job.id, event: job.name })
-  })
-
-  worker.on('completed', (job) => {
-    logger.debug('Event processing done', { id: job.id, eve: job.name })
-  })
-
-  worker.on('error', (error) => {
-    logger.error('Worker error', { error })
-  })
-
-  worker.on('failed', (job) => {
-    const hasStalled = !job
-
-    if (hasStalled) {
-      logger.error('Event processing stalled')
-    } else {
-      logger.error('Event processing failed', { id: job.id, name: job.name })
-    }
-  })
 }

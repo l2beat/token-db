@@ -10,13 +10,13 @@ import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildDeploymentSource } from './sources/deployment.js'
+import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { buildTokenListSource } from './sources/tokenList.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { eventRouter } from './utils/queue/router/index.js'
 import { setupQueue } from './utils/queue/setup-queue.js'
-import { setupWorker } from './utils/queue/setup-worker.js'
 import { buildSingleQueue } from './utils/queue/single-queue.js'
 import { wrapTokenQueue } from './utils/queue/wrap.js'
 
@@ -78,12 +78,11 @@ const deploymentProcessors = networksConfig
 
     return {
       queue: bus.queue,
-      processor,
       routingKey: networkConfig.chainId,
     }
   })
 
-router.routingKey<TokenPayload, number>(async (event) => {
+router.routingKey(async (event) => {
   const token = await db.token.findFirstOrThrow({
     where: { id: event.tokenId },
     include: { network: true },
@@ -129,6 +128,21 @@ const tokenListSources = lists.map(({ tag, url }) =>
     name: `TokenListProcessor:${tag}`,
   }),
 )
+
+const lzV1Sources = networksConfig.filter(withExplorer).map((networkConfig) => {
+  return {
+    name: `LayerZeroV1Processor:${networkConfig.name}`,
+    processor: buildLayerZeroV1Source({
+      logger,
+      db,
+      networkConfig,
+      queue: tokenUpdateQueue,
+    }),
+  }
+})
+
+const lzV1Queues = lzV1Sources.map((source) => sourceQueue(source))
+
 const axelarGatewayQueues = networksConfig.map((networkConfig) =>
   sourceQueue({
     name: `AxelarGatewayProcessor:${networkConfig.name}`,
@@ -168,6 +182,7 @@ const independentSources = [
   wormholeQueue,
   orbitQueue,
   ...tokenListSources,
+  ...lzV1Queues,
 ]
 
 const refreshInbox = setupQueue({
@@ -175,21 +190,7 @@ const refreshInbox = setupQueue({
   connection,
 })
 
-const dummyInbox = setupQueue({
-  name: 'DummyInbox',
-  connection,
-})
-
-setupWorker<TokenPayload>({
-  connection,
-  queue: dummyInbox,
-  processor: async (job) => {
-    await Promise.resolve()
-    console.log('Dummy worker here lol', job.data.tokenId)
-  },
-})
-
-router.broadcast(tokenUpdateInbox, [deploymentRoutingInbox, dummyInbox])
+router.forward(tokenUpdateInbox, deploymentRoutingInbox)
 
 router.broadcast(
   refreshInbox,
@@ -224,6 +225,10 @@ app.get('/refresh', () => {
 
 app.get('/refresh/axelar-gateway', () => {
   axelarConfigQueue.queue.add('RefreshSignal', {})
+})
+
+app.get('/refresh/lists', () => {
+  tokenListSources.forEach((q) => q.queue.add('RefreshSignal', {}))
 })
 
 app.listen(3000, () => {

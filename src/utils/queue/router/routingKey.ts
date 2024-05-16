@@ -2,6 +2,7 @@ import { Logger } from '@l2beat/backend-tools'
 import { Job, Queue } from 'bullmq'
 import { Redis } from 'ioredis'
 import { setupWorker } from '../setup-worker.js'
+import { InferQueueDataType } from '../types.js'
 
 type RoutedQueue<Event, RoutingKey> = {
   queue: Queue<Event>
@@ -18,10 +19,14 @@ export function routingKey({
   connection: Redis
   logger: Logger
 }) {
-  return <Event, RoutingKey>(
-    extractRoutingKey: (event: Event) => Promise<RoutingKey>,
+  return <
+    InputQueue extends Queue = Queue,
+    InputEvent = InferQueueDataType<InputQueue>,
+    RoutingKey = unknown,
+  >(
+    extractRoutingKey: (event: InputEvent) => Promise<RoutingKey>,
   ) =>
-    (from: Queue<Event>, to: RoutedQueue<Event, RoutingKey>[]) => {
+    (from: InputQueue, to: RoutedQueue<InputEvent, RoutingKey>[]) => {
       const queueMap = new Map<RoutingKey, Queue>(
         to.map(({ queue, routingKey }) => [routingKey, queue]),
       )
@@ -29,7 +34,7 @@ export function routingKey({
       const routingWorker = setupWorker({
         queue: from,
         connection,
-        processor: async (job: Job<Event>) => {
+        processor: async (job: Job<InputEvent>) => {
           const routingKey = await extractRoutingKey(job.data)
           const queue = queueMap.get(routingKey)
           if (queue) {

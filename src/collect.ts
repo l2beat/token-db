@@ -23,7 +23,7 @@ const lightOutboxQueue = setupQueue<{ tokenIds: string[] }>({
   name: 'LightOutbox',
 })
 
-setupCollector<TokenPayload, { tokenIds: string[] }>({
+setupCollector({
   inputQueue: heavyInboxQueue,
   outputQueue: lightOutboxQueue,
   aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
@@ -33,7 +33,7 @@ setupCollector<TokenPayload, { tokenIds: string[] }>({
   logger,
 })
 
-setupWorker<{ tokenIds: string[] }>({
+setupWorker({
   queue: lightOutboxQueue,
   connection,
   processor: async (job) => {
