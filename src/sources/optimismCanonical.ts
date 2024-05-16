@@ -42,19 +42,6 @@ function buildOptimismCanonicalSource({
     })
     assert(optimismNetwork, 'Optimism network not found')
 
-    logger.info('Upserting bridge info')
-    const { id: bridgeId } = await db.bridge.upsert({
-      select: { id: true },
-      where: {
-        name: 'Optimism',
-      },
-      create: {
-        id: nanoid(),
-        name: 'Optimism',
-      },
-      update: {},
-    })
-
     const tokens = await db.token.findMany({
       where: {
         deployment: {
@@ -114,8 +101,8 @@ function buildOptimismCanonicalSource({
     await db.tokenBridge.upsertMany({
       data: tokensBridgeToUpsert
         .filter(notUndefined)
-        .map((t) => ({ id: nanoid(), ...t, bridgeId })),
-      conflictPaths: ['bridgeId', 'targetTokenId'],
+        .map((t) => ({ id: nanoid(), ...t })),
+      conflictPaths: ['targetTokenId'],
     })
 
     logger.info(`Synced Optimism canonical tokens data...`)

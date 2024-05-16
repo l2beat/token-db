@@ -21,14 +21,15 @@ export function buildLayerZeroV1Source({
     logger.info(`Syncing tokens from LayerZero...`)
 
     logger.info('Upserting bridge info')
-    const { id: bridgeId } = await db.bridge.upsert({
+    const { id: externalBridgeId } = await db.externalBridge.upsert({
       select: { id: true },
       where: {
-        name: 'LayerZeroV1',
+        type: 'LayerZeroV1',
       },
       create: {
         id: nanoid(),
         name: 'LayerZeroV1',
+        type: 'LayerZeroV1',
       },
       update: {},
     })
@@ -128,7 +129,7 @@ export function buildLayerZeroV1Source({
     await db.bridgeEscrow.upsertMany({
       data: ercAddresses.map((address) => ({
         id: nanoid(),
-        bridgeId,
+        externalBridgeId,
         address,
         networkId,
       })),

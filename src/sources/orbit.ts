@@ -38,14 +38,17 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
     const res = await zodFetch(env.ORBIT_LIST_URL, OrbitResponse)
 
     logger.info('Upserting bridge info')
-    const { id: bridgeId } = await db.bridge.upsert({
+
+    const { id: externalBridgeId } = await db.externalBridge.upsert({
       select: { id: true },
       where: {
         name: 'Orbit',
+        type: 'Orbit',
       },
       create: {
         id: nanoid(),
         name: 'Orbit',
+        type: 'Orbit',
       },
       update: {},
     })
@@ -110,16 +113,13 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
 
           await db.tokenBridge.upsert({
             where: {
-              bridgeId_targetTokenId: {
-                bridgeId,
-                targetTokenId,
-              },
+              targetTokenId,
             },
             create: {
               id: nanoid(),
               sourceTokenId,
               targetTokenId,
-              bridgeId,
+              externalBridgeId,
             },
             update: {
               sourceTokenId,

@@ -23,14 +23,16 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
     const res = await zodFetch(configUrl, ConfigResponse)
 
     logger.info('Upserting bridge info')
-    const { id: bridgeId } = await db.bridge.upsert({
+
+    const { id: externalBridgeId } = await db.externalBridge.upsert({
       select: { id: true },
       where: {
-        name: 'Axelar',
+        type: 'Axelar',
       },
       create: {
         id: nanoid(),
         name: 'Axelar',
+        type: 'Axelar',
       },
       update: {},
     })
@@ -103,9 +105,9 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         },
         create: {
           id: nanoid(),
-          bridgeId,
           networkId: sourceNetwork.id,
           address: sourceToken.tokenAddress,
+          externalBridgeId,
         },
         update: {},
       })
@@ -149,16 +151,13 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         // Upsert the bridge entry
         await db.tokenBridge.upsert({
           where: {
-            bridgeId_targetTokenId: {
-              bridgeId,
-              targetTokenId,
-            },
+            targetTokenId,
           },
           create: {
             id: nanoid(),
             sourceTokenId,
             targetTokenId,
-            bridgeId,
+            externalBridgeId,
           },
           update: {},
         })
