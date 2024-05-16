@@ -114,6 +114,8 @@ function buildArbitrumCanonicalSource({
       conflictPaths: ['targetTokenId'],
     })
 
-    logger.info(`Synced Arbitrum canonical tokens data...`)
+    logger.info(
+      `Synced ${tokensBridgeToUpsert.length} Arbitrum canonical tokens data`,
+    )
   }
 }

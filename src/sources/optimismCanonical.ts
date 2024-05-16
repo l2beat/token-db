@@ -105,6 +105,8 @@ function buildOptimismCanonicalSource({
       conflictPaths: ['targetTokenId'],
     })
 
-    logger.info(`Synced Optimism canonical tokens data...`)
+    logger.info(
+      `Synced ${tokensBridgeToUpsert.length} Optimism canonical tokens data`,
+    )
   }
 }
