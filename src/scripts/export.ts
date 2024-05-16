@@ -69,4 +69,25 @@ await db.$disconnect()
 
 await writeFile(path, JSON.stringify(tokens, null, 2))
 
-console.log(`Exported ${tokens.length} tokens to ${path} ✅`)
+const counts = tokens.reduce<
+  Record<'externallyBridged' | 'canonicallyBridged' | 'native', number>
+>(
+  (acc, token) => {
+    if (token.bridgedFrom) {
+      if (token.bridgedFrom.externalBridge) {
+        acc.externallyBridged++
+      } else {
+        acc.canonicallyBridged++
+      }
+    } else {
+      acc.native++
+    }
+    return acc
+  },
+  { externallyBridged: 0, canonicallyBridged: 0, native: 0 },
+)
+
+console.log(`Exported total ${tokens.length} to ${path} ✅`)
+console.log(`- externally bridged: ${counts.externallyBridged}`)
+console.log(`- canonically bridged: ${counts.canonicallyBridged}`)
+console.log(`- native: ${counts.native}`)
