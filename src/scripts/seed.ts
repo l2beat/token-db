@@ -158,7 +158,7 @@ async function seed() {
       .map((network) => {
         const networkSlug = network.name
           .toLowerCase()
-          .replace(' ', '-')
+          .replace(' ', '_')
           .toUpperCase()
         const explorerUrl = process.env[`${networkSlug}_EXPLORER_URL`]
         const explorerApiKey = process.env[`${networkSlug}_EXPLORER_API_KEY`]
