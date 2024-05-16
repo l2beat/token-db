@@ -3,12 +3,10 @@ import { createPrismaClient } from '../db/prisma.js'
 import { argv } from 'process'
 import { writeFile } from 'fs/promises'
 
-console.log(argv)
-
 const path = argv[2]
 
 if (!path) {
-  console.error('Usage: yarn db:export <output-path>')
+  console.error('Usage: yarn export <output-path>')
   process.exit(1)
 }
 
