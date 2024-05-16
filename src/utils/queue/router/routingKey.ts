@@ -35,7 +35,9 @@ export function routingKey({
           if (queue) {
             await queue.add(job.name, job.data)
           } else {
-            logger.debug('No queue for routing key', { routingKey })
+            logger
+              .tag(from.name)
+              .debug('No queue for routing key', { routingKey })
           }
         },
       })
