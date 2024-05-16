@@ -1,7 +1,7 @@
-import { PrismaClient } from '../db/prisma.js'
-import { Logger, assert } from '@l2beat/backend-tools'
+import { assert, Logger } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
 import { setTimeout } from 'timers/promises'
+import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
 
 type Dependencies = {
@@ -13,11 +13,13 @@ type Dependencies = {
 export function buildLayerZeroV1Source({
   db,
   logger,
-  networkConfig: { chainId, networkId, explorerClient, publicClient },
+  networkConfig: { chainId, networkId, explorerClient, publicClient, name },
 }: Dependencies) {
-  logger = logger.for('LayerZeroV1Source')
+  logger = logger.for('LayerZeroV1Source').tag(name)
 
   return async function () {
+    logger.info(`Syncing tokens from LayerZero...`)
+
     logger.info('Upserting bridge info')
     const { id: externalBridgeId } = await db.externalBridge.upsert({
       select: { id: true },
@@ -113,7 +115,7 @@ export function buildLayerZeroV1Source({
 
     logger.info('ERC20 addresses fetched', { count: ercAddresses.length })
 
-    logger.info('Upserting tokens', { count: ercAddresses.length })
+    logger.info('Inserting tokens', { count: ercAddresses.length })
     await db.token.upsertMany({
       data: ercAddresses.map((address) => ({
         id: nanoid(),
@@ -123,7 +125,7 @@ export function buildLayerZeroV1Source({
       conflictPaths: ['networkId', 'address'],
     })
 
-    logger.info('Upserting bridge escrows', { count: ercAddresses.length })
+    logger.info('Inserting bridge escrows', { count: ercAddresses.length })
     await db.bridgeEscrow.upsertMany({
       data: ercAddresses.map((address) => ({
         id: nanoid(),
@@ -133,5 +135,6 @@ export function buildLayerZeroV1Source({
       })),
       conflictPaths: ['networkId', 'address'],
     })
+    logger.info(`Synced tokens from LayerZero`)
   }
 }

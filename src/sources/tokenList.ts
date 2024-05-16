@@ -1,8 +1,8 @@
 import { Logger } from '@l2beat/backend-tools'
-import { zodFetch } from '../utils/zod-fetch.js'
 import { z } from 'zod'
-import { PrismaClient } from '../db/prisma.js'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
+import { PrismaClient } from '../db/prisma.js'
+import { zodFetch } from '../utils/zodFetch.js'
 
 export { buildTokenListSource }
 
@@ -17,7 +17,8 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
   logger = logger.for('TokenListSource').tag(`${tag}`)
 
   return async function () {
-    const result = await zodFetch(url, TokenList)
+    logger.info(`Syncing tokens from token list...`)
+    const result = await zodFetch(url, TokenListResponse)
 
     logger.info('Token list fetched', { count: result.tokens.length })
 
@@ -40,7 +41,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
-        source: `TOKEN_LIST_${tag}`,
+        source: `token-list-${tag}`,
         logoUrl: token.logoURI,
       }
     })
@@ -51,10 +52,9 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
     }
 
     logger.info('Inserting tokens', { count: tokens.length })
-
     await upsertManyTokensWithMeta(db, tokens)
 
-    logger.info('Token list processed')
+    logger.info(`Synced ${tokens.length} tokens for token list`)
   }
 }
 
@@ -69,7 +69,7 @@ const TokenInfo = z.strictObject({
   extensions: z.record(z.unknown()).optional(),
 })
 
-const TokenList = z.strictObject({
+const TokenListResponse = z.strictObject({
   name: z.string(),
   timestamp: z.string(),
   version: z.strictObject({

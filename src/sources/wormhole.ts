@@ -2,15 +2,17 @@ import Papa from 'papaparse'
 import { getAddress } from 'viem'
 import { z } from 'zod'
 
+import { assert } from '@l2beat/backend-tools'
+import { nanoid } from 'nanoid'
+import { upsertTokenWithMeta } from '../db/helpers.js'
 import { env } from '../env.js'
 import { SourceContext } from './source.js'
-import { nanoid } from 'nanoid'
-import { assert } from '@l2beat/backend-tools'
-import { upsertTokenWithMeta } from '../db/helpers.js'
 
 export function buildWormholeSource({ logger, db }: SourceContext) {
   logger = logger.for('WormholeSource')
+
   return async () => {
+    logger.info(`Syncing tokens from Wormhole...`)
     const networks = await db.network
       .findMany({
         include: {
@@ -132,6 +134,7 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
         }
       }
     }
+    logger.info(`Synced tokens from Wormhole`)
   }
 }
 

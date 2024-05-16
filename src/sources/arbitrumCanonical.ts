@@ -26,7 +26,7 @@ function buildArbitrumCanonicalSource({
   logger,
   networksConfig,
 }: Dependencies) {
-  logger = logger.for('ArbitrumCanonical')
+  logger = logger.for('ArbitrumCanonicalSource')
 
   return async function () {
     logger.info(`Syncing Arbitrum canonical tokens data...`)

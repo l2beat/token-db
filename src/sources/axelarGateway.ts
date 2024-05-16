@@ -1,9 +1,9 @@
 import { assert, Logger } from '@l2beat/backend-tools'
 import { SetRequired } from 'type-fest'
-import { createPublicClient, http, isAddress, parseAbiItem } from 'viem'
+import { isAddress, parseAbiItem } from 'viem'
+import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
-import { upsertManyTokensWithMeta } from '../db/helpers.js'
 
 export { buildAxelarGatewaySource }
 
@@ -17,6 +17,8 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
   logger = logger.for('AxelarGatewaySource').tag(`${networkConfig.name}`)
 
   return async function () {
+    logger.info(`Syncing tokens from Axelar Gateway...`)
+
     const network = await db.network
       .findFirst({
         include: {
@@ -43,21 +45,12 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
       })
 
     if (!network) {
-      logger.info(
-        `Syncing tokens from Axelar Gateway on ${networkConfig.name} skipped`,
-      )
+      logger.info(`Syncing tokens from Axelar Gateway skipped`)
       return
     }
 
-    logger.info(`Syncing tokens from Axelar Gateway on ${network.name}...`)
     try {
-      const url = network.rpcs.at(0)?.url
-      assert(url, 'Expected network to have at least one rpc')
-      const client = createPublicClient({
-        transport: http(url),
-      })
-
-      const logs = await client.getLogs({
+      const logs = await networkConfig.publicClient.getLogs({
         event: parseAbiItem(
           'event TokenDeployed(string symbol, address tokenAddresses)',
         ),
@@ -82,11 +75,10 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
           externalId: `${log.transactionHash}-${log.logIndex.toString()}`,
         }))
 
+      logger.info('Inserting tokens', { count: tokens.length })
       await upsertManyTokensWithMeta(db, tokens)
 
-      logger.info(
-        `Synced ${tokens.length} tokens from Axelar Gateway on ${network.name}`,
-      )
+      logger.info(`Synced ${tokens.length} tokens from Axelar Gateway`)
     } catch (e) {
       logger.error(
         `Failed to sync tokens from Axelar Gateway on ${network.name}`,

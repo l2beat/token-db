@@ -1,16 +1,17 @@
-import { getAddress } from 'viem'
-import { z } from 'zod'
-import { SourceContext } from './source.js'
-import { env } from '../env.js'
 import { assert } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
+import { getAddress } from 'viem'
+import { z } from 'zod'
 import { upsertTokenWithMeta } from '../db/helpers.js'
+import { env } from '../env.js'
+import { zodFetch } from '../utils/zodFetch.js'
+import { SourceContext } from './source.js'
 
 export function buildOrbitSource({ logger, db }: SourceContext) {
   logger = logger.for('OrbitSource')
 
   return async () => {
-    logger.info(`Fetching tokens from Orbit...`)
+    logger.info(`Syncing tokens from Orbit...`)
 
     const networks = await db.network
       .findMany({
@@ -34,9 +35,7 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
         }),
       )
 
-    const res = await fetch(env.ORBIT_LIST_URL)
-    const data = await res.json()
-    const parsed = OrbitResult.parse(data)
+    const res = await zodFetch(env.ORBIT_LIST_URL, OrbitResponse)
 
     logger.info('Upserting bridge info')
 
@@ -55,12 +54,8 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
     })
 
     let count = 0
-    const totalCount = parsed.tokenList.flatMap((token) => [
-      null,
-      Object.values(token.minters),
-    ]).length
 
-    for (const token of parsed.tokenList) {
+    for (const token of res.tokenList) {
       logger.debug('Processing token', { symbol: token.symbol })
       const sourceNetwork = networks.find(
         (chain) => chain.orbitId && chain.orbitId === token.chain,
@@ -135,11 +130,11 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
         count++
       }
     }
-    logger.info('Orbit info processed', { count, totalCount })
+    logger.info(`Synced ${count} tokens from Orbit`)
   }
 }
 
-const OrbitResult = z.object({
+const OrbitResponse = z.object({
   success: z.boolean(),
   tokenList: z.array(
     z.object({

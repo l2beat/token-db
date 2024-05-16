@@ -1,20 +1,20 @@
 import { Logger } from '@l2beat/backend-tools'
 
-import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
+import { buildAxelarGatewaySource } from './sources/axelarGateway.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildTokenListSource } from './sources/tokenList.js'
 
 import { createPrismaClient } from './db/prisma.js'
-import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
-import { buildAxelarConfigSource } from './sources/axelar-config.js'
+import { buildArbitrumCanonicalSource } from './sources/arbitrumCanonical.js'
+import { buildAxelarConfigSource } from './sources/axelarConfig.js'
 import { buildDeploymentSource } from './sources/deployment.js'
+import { buildLayerZeroV1Source } from './sources/layerzeroV1.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
-import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
+import { buildOptimismCanonicalSource } from './sources/optimismCanonical.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { getTokensForChain } from './utils/getTokensForChain.js'
-import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 
 const db = createPrismaClient()
 

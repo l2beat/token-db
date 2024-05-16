@@ -24,7 +24,7 @@ function buildOptimismCanonicalSource({
   logger,
   networksConfig,
 }: Dependencies) {
-  logger = logger.for('OptimismCanonical')
+  logger = logger.for('OptimismCanonicalSource')
 
   return async function () {
     logger.info(`Syncing Optimism canonical tokens data...`)
