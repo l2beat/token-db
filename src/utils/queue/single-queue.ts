@@ -15,7 +15,10 @@ export function buildSingleQueue<Event = unknown>({
 }: { connection: Redis; logger: Logger }) {
   return (subscriber: EventProcessor<Event>) => {
     const queueLogger = logger.for(subscriber.name)
-    const queue = setupQueue<Event>({ name: subscriber.name, connection })
+    const queue = setupQueue<Event>({
+      name: subscriber.name,
+      connection,
+    })
 
     const worker = setupWorker({
       queue,

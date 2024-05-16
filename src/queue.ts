@@ -12,14 +12,13 @@ import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { buildSingleQueue } from './utils/queue/single-queue.js'
 import { setupQueue } from './utils/queue/setup-queue.js'
-import { fanOut } from './utils/queue/fanout.js'
 import { Token } from '@prisma/client'
-import { forward } from './utils/queue/forward.js'
 import { wrapTokenQueue } from './utils/queue/wrap.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
-import { routed } from './utils/queue/routed.js'
 import { connection } from './redis/redis.js'
+import { setupWorker } from './utils/queue/setup-worker.js'
+import { eventRouter } from './utils/queue/router/index.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 
@@ -29,6 +28,11 @@ const logger = new Logger({ format: 'pretty', colors: true })
 
 const networksConfig = await getNetworksConfig({
   db,
+  logger,
+})
+
+const router = eventRouter({
+  connection,
   logger,
 })
 
@@ -79,25 +83,19 @@ const deploymentProcessors = networksConfig
     }
   })
 
-routed<TokenPayload, number>({
-  connection,
-  logger,
-  extractRoutingKey: async (event) => {
-    const token = await db.token.findFirstOrThrow({
-      where: { id: event.tokenId },
-      include: { network: true },
-    })
+router.routingKey<TokenPayload, number>(async (event) => {
+  const token = await db.token.findFirstOrThrow({
+    where: { id: event.tokenId },
+    include: { network: true },
+  })
 
-    return token.network.chainId
-  },
+  return token.network.chainId
 })(deploymentRoutingInbox, deploymentProcessors)
 
 const tokenUpdateInbox = setupQueue<TokenPayload>({
   name: 'TokenUpdateInbox',
   connection,
 })
-
-forward({ connection, logger })(tokenUpdateInbox, deploymentRoutingInbox)
 
 const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
@@ -177,7 +175,23 @@ const refreshInbox = setupQueue({
   connection,
 })
 
-fanOut({ connection, logger })(
+const dummyInbox = setupQueue({
+  name: 'DummyInbox',
+  connection,
+})
+
+setupWorker<TokenPayload>({
+  connection,
+  queue: dummyInbox,
+  processor: async (job) => {
+    await Promise.resolve()
+    console.log('Dummy worker here lol', job.data.tokenId)
+  },
+})
+
+router.broadcast(tokenUpdateInbox, [deploymentRoutingInbox, dummyInbox])
+
+router.broadcast(
   refreshInbox,
   independentSources.map((q) => q.queue),
 )

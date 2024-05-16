@@ -1,7 +1,7 @@
 import { Logger } from '@l2beat/backend-tools'
 import { Job, Queue } from 'bullmq'
 import { Redis } from 'ioredis'
-import { setupWorker } from './setup-worker.js'
+import { setupWorker } from '../setup-worker.js'
 
 /**
  * Forward events from one queue to another.
@@ -14,8 +14,6 @@ export function forward<Event>({
   logger: Logger
 }) {
   return (from: Queue<Event>, to: Queue<Event>) => {
-    logger = logger.for('QueueRouter')
-
     const forwardWorker = setupWorker({
       queue: from,
       connection,

@@ -3,16 +3,14 @@ import { Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 
 /**
- * Fan-out events from one queue to multiple queues.
+ * Broadcast events from one queue to multiple queues.
  */
-export function fanOut({
+export function broadcast({
   connection,
   logger,
 }: { connection: Redis; logger: Logger }) {
   return (from: Queue, to: Queue[]) => {
-    logger = logger.for('QueueRouter')
-
-    const fanOutWorker = new Worker(
+    const broadcastWorker = new Worker(
       from.name,
       async (job) => {
         to.forEach((queue) => {
@@ -22,11 +20,11 @@ export function fanOut({
       { connection },
     )
 
-    logger.info('Fan-out rule set', {
+    logger.info('Broadcast rule set', {
       from: from.name,
       to: to.map((queue) => queue.name),
     })
 
-    return fanOutWorker
+    return broadcastWorker
   }
 }

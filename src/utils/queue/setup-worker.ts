@@ -3,8 +3,8 @@ import { Processor, Queue, Worker } from 'bullmq'
 import { Redis } from 'ioredis'
 
 export function setupWorker<
-  DataType,
-  ResultType,
+  DataType = unknown,
+  ResultType = unknown,
   NameType extends string = string,
 >({
   queue,
