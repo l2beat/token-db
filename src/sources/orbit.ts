@@ -1,22 +1,13 @@
-import { Logger, assert } from '@l2beat/backend-tools'
+import { assert } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
 import { getAddress } from 'viem'
+import { z } from 'zod'
 import { upsertTokenWithMeta } from '../db/helpers.js'
 import { env } from '../env.js'
 import { zodFetch } from '../utils/zodFetch.js'
-import { PrismaClient } from '../db/prisma.js'
-import { TokenUpdateQueue } from '../utils/queue/wrap.js'
-import { z } from 'zod'
+import { SourceContext } from './source.js'
 
-export function buildOrbitSource({
-  logger,
-  db,
-  queue,
-}: {
-  logger: Logger
-  db: PrismaClient
-  queue: TokenUpdateQueue
-}) {
+export function buildOrbitSource({ logger, db }: SourceContext) {
   logger = logger.for('OrbitSource')
 
   return async () => {
@@ -64,8 +55,6 @@ export function buildOrbitSource({
 
     let count = 0
 
-    const tokenIds = new Set<string>()
-
     for (const token of res.tokenList) {
       logger.debug('Processing token', { symbol: token.symbol })
       const sourceNetwork = networks.find(
@@ -90,8 +79,6 @@ export function buildOrbitSource({
         symbol: token.symbol,
         decimals: token.decimals,
       })
-
-      tokenIds.add(sourceTokenId)
 
       count++
 
@@ -124,8 +111,6 @@ export function buildOrbitSource({
             decimals: token.decimals,
           })
 
-          tokenIds.add(targetTokenId)
-
           await db.tokenBridge.upsert({
             where: {
               targetTokenId,
@@ -145,9 +130,6 @@ export function buildOrbitSource({
         count++
       }
     }
-
-    await Promise.all([...tokenIds].map((tokenId) => queue.add(tokenId)))
-
     logger.info(`Synced ${count} tokens from Orbit`)
   }
 }

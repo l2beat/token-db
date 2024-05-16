@@ -19,7 +19,7 @@
     "db:studio": "prisma studio",
     "dev": "prisma generate > /dev/null && tsx --no-warnings=ExperimentalWarning --watch src/main.ts",
     "format": "biome check .",
-    "format:fix": "biome format --write .",
+    "format:fix": "biome check --apply .",
     "lint": "biome lint .",
     "lint:fix": "biome lint . --apply",
     "nanoid": "nanoid",
