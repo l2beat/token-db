@@ -41,7 +41,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
-        source: `token-list-${tag}`,
+        source: { type: 'TokenList' as const, details: tag },
         logoUrl: token.logoURI,
       }
     })

@@ -68,8 +68,7 @@ function buildCoingeckoSource({ db, logger }: Dependencies) {
             externalId: token.id,
             symbol: token.symbol,
             name: token.name,
-            // Code-level constraint?
-            source: 'coingecko',
+            source: { type: 'CoinGecko' as const },
           })),
       )
 

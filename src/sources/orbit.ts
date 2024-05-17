@@ -74,7 +74,7 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
       const { tokenId: sourceTokenId } = await upsertTokenWithMeta(db, {
         networkId: sourceNetwork.id,
         address: getAddress(token.address),
-        source: 'orbit',
+        source: { type: 'Orbit' },
         externalId: token.address,
         symbol: token.symbol,
         decimals: token.decimals,
@@ -105,7 +105,7 @@ export function buildOrbitSource({ logger, db }: SourceContext) {
           const { tokenId: targetTokenId } = await upsertTokenWithMeta(db, {
             networkId: targetNetwork.id,
             address: getAddress(minter.address),
-            source: 'orbit',
+            source: { type: 'Orbit' },
             externalId: minter.address,
             symbol: minter.symbol,
             decimals: token.decimals,

@@ -2,9 +2,12 @@ import { Prisma } from '@prisma/client'
 import { PrismaClient } from './prisma.js'
 import { nanoid } from 'nanoid'
 import { Simplify } from 'type-fest'
+import { SourceTagParams, sourceTag } from '../utils/sourceTag.js'
 
 export type UpsertTokenMetaInput = Simplify<
-  Omit<Prisma.TokenMetaCreateManyInput, 'id'>
+  Omit<Prisma.TokenMetaCreateManyInput, 'id' | 'source'> & {
+    source: SourceTagParams
+  }
 >
 
 export async function upsertTokenMeta(
@@ -16,13 +19,13 @@ export async function upsertTokenMeta(
     where: {
       tokenId_source: {
         tokenId,
-        source,
+        source: sourceTag(source),
       },
     },
     create: {
       id: nanoid(),
       tokenId,
-      source,
+      source: sourceTag(source),
       ...meta,
     },
     update: {
@@ -35,7 +38,9 @@ export async function upsertTokenMeta(
 
 export type UpsertTokenWithMetaInput = Simplify<
   Omit<Prisma.TokenCreateManyInput, 'id'> &
-    Omit<Prisma.TokenMetaCreateManyInput, 'id' | 'tokenId'>
+    Omit<Prisma.TokenMetaCreateManyInput, 'id' | 'tokenId' | 'source'> & {
+      source: SourceTagParams
+    }
 >
 
 export async function upsertTokenWithMeta(
@@ -63,13 +68,13 @@ export async function upsertTokenWithMeta(
     where: {
       tokenId_source: {
         tokenId,
-        source,
+        source: sourceTag(source),
       },
     },
     create: {
       id: nanoid(),
       tokenId,
-      source,
+      source: sourceTag(source),
       ...meta,
     },
     update: {
@@ -85,8 +90,9 @@ export async function upsertManyTokenMeta(
   metas: UpsertTokenMetaInput[],
 ) {
   await db.tokenMeta.upsertMany({
-    data: metas.map((meta) => ({
+    data: metas.map(({ source, ...meta }) => ({
       id: nanoid(),
+      source: sourceTag(source),
       ...meta,
     })),
     conflictPaths: ['tokenId', 'source'],
@@ -124,9 +130,10 @@ export async function upsertManyTokensWithMeta(
   )
 
   await db.tokenMeta.upsertMany({
-    data: tokens.map(({ networkId, address, ...meta }) => ({
+    data: tokens.map(({ networkId, address, source, ...meta }) => ({
       id: nanoid(),
       tokenId: tokenIds[`${networkId}_${address}`] ?? '',
+      source: sourceTag(source),
       ...meta,
     })),
     conflictPaths: ['tokenId', 'source'],
