@@ -1,6 +1,5 @@
 import { assert, Logger } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
-import { setTimeout } from 'timers/promises'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
 
@@ -83,7 +82,6 @@ export function buildLayerZeroV1Source({
 
       // reduce memory footprint by only storing the from address
       fetchedInternalTxs.forEach((ftx) => fromAddresses.add(ftx.from))
-      await setTimeout(500)
     }
 
     logger.info('Addresses fetched', { count: fromAddresses.size })
@@ -109,8 +107,6 @@ export function buildLayerZeroV1Source({
       if (isErc20) {
         ercAddresses.push(address)
       }
-
-      await setTimeout(500)
     }
 
     logger.info('ERC20 addresses fetched', { count: ercAddresses.length })
