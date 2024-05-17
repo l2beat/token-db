@@ -97,7 +97,7 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
       const { tokenId: sourceTokenId } = await upsertTokenWithMeta(db, {
         networkId: sourceChain.id,
         address: getAddress(token.address),
-        source: 'wormhole',
+        source: { type: 'Wormhole' },
         externalId: token.address,
         symbol: token.symbol,
         name: token.name,
@@ -112,7 +112,7 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
           const { tokenId: targetTokenId } = await upsertTokenWithMeta(db, {
             networkId: destinationChain.id,
             address: getAddress(wrapped.address),
-            source: 'wormhole',
+            source: { type: 'Wormhole' },
             externalId: token.address,
             symbol: token.symbol,
             name: token.name,

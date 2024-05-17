@@ -17,6 +17,8 @@ model BridgeEscrow {
   canonicalNetworkId String?         @db.Char(21)
   canonicalNetwork   Network?        @relation("canonicalNetwork", fields: [canonicalNetworkId], references: [id])
   tokens             Token[]
+  updatedAt          DateTime        @updatedAt
+  createdAt          DateTime        @default(now())
 
   @@unique([networkId, address])
 }
@@ -34,6 +36,9 @@ model ExternalBridge {
   type    ExternalBridgeType @unique
   tokens  TokenBridge[]
   escrows BridgeEscrow[]
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 model Deployment {
@@ -47,17 +52,21 @@ model Deployment {
   to              String?
   isDeployerEoa   Boolean?
   sourceAvailable Boolean
+  updatedAt       DateTime  @updatedAt
+  createdAt       DateTime  @default(now())
 }
 
 enum ExplorerType {
-  ETHERSCAN
+  Etherscan
 }
 
 model NetworkRpc {
-  id        String  @id @db.Char(21)
-  networkId String  @db.Char(21)
-  network   Network @relation(fields: [networkId], references: [id])
+  id        String   @id @db.Char(21)
+  networkId String   @db.Char(21)
+  network   Network  @relation(fields: [networkId], references: [id])
   url       String
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 model NetworkExplorer {
@@ -67,6 +76,8 @@ model NetworkExplorer {
   type      ExplorerType
   url       String
   apiKey    String
+  updatedAt DateTime     @updatedAt
+  createdAt DateTime     @default(now())
 
   @@unique(networkId)
   @@unique([networkId, type])
@@ -87,29 +98,35 @@ model Network {
   rpcs                       NetworkRpc[]
   explorer                   NetworkExplorer?
   tokens                     Token[]
+  updatedAt                  DateTime         @updatedAt
+  createdAt                  DateTime         @default(now())
 }
 
 model TokenBridge {
-  id               String         @id @db.Char(21)
-  sourceTokenId    String         @db.Char(21)
-  sourceToken      Token          @relation("bridgedTo", fields: [sourceTokenId], references: [id])
-  targetTokenId    String         @unique @db.Char(21)
-  targetToken      Token          @relation("bridgedFrom", fields: [targetTokenId], references: [id])
+  id               String          @id @db.Char(21)
+  sourceTokenId    String          @db.Char(21)
+  sourceToken      Token           @relation("bridgedTo", fields: [sourceTokenId], references: [id])
+  targetTokenId    String          @unique @db.Char(21)
+  targetToken      Token           @relation("bridgedFrom", fields: [targetTokenId], references: [id])
   externalBridgeId String?         @db.Char(21)
   externalBridge   ExternalBridge? @relation(fields: [externalBridgeId], references: [id])
+  updatedAt        DateTime        @updatedAt
+  createdAt        DateTime        @default(now())
 }
 
 model TokenMeta {
-  id           String  @id @db.Char(21)
-  tokenId      String  @db.Char(21)
-  token        Token   @relation(fields: [tokenId], references: [id])
-  externalId   String? @db.VarChar(256)
-  source       String  @db.VarChar(256)
-  name         String? @db.VarChar(256)
-  symbol       String? @db.VarChar(32)
+  id           String   @id @db.Char(21)
+  tokenId      String   @db.Char(21)
+  token        Token    @relation(fields: [tokenId], references: [id])
+  externalId   String?  @db.VarChar(256)
+  source       String   @db.VarChar(256)
+  name         String?  @db.VarChar(256)
+  symbol       String?  @db.VarChar(32)
   decimals     Int?
-  logoUrl      String? @db.VarChar(256)
-  contractName String? @db.VarChar(256)
+  logoUrl      String?  @db.VarChar(256)
+  contractName String?  @db.VarChar(256)
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
 
   @@unique([tokenId, source])
 }
@@ -124,6 +141,8 @@ model Token {
   bridgedTo   TokenBridge[]  @relation("bridgedTo")
   bridgedFrom TokenBridge?   @relation("bridgedFrom")
   escrows     BridgeEscrow[]
+  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime       @default(now())
 
   @@unique([networkId, address])
 }

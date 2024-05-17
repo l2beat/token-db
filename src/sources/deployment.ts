@@ -42,7 +42,7 @@ export function buildDeploymentSource({
 
     await upsertTokenMeta(db, {
       tokenId: token.id,
-      source: 'deployment',
+      source: { type: 'Deployment' },
       externalId: deploymentInfo.txHash,
       contractName: metaInfo.contractName,
     })

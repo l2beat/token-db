@@ -70,7 +70,7 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
         .map((log) => ({
           networkId: network.id,
           address: log.args.tokenAddresses,
-          source: 'axelar-gateway' as const,
+          source: { type: 'AxelarGateway' as const },
           symbol: log.args.symbol,
           externalId: `${log.transactionHash}-${log.logIndex.toString()}`,
         }))

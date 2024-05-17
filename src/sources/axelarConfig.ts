@@ -116,7 +116,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
       const { tokenId: sourceTokenId } = await upsertTokenWithMeta(db, {
         networkId: sourceNetwork.id,
         address: sourceToken.tokenAddress,
-        source: 'axelar-config',
+        source: { type: 'AxelarConfig' },
         externalId: sourceToken.fullDenomPath,
         symbol: sourceToken.assetSymbol,
         name: sourceToken.assetName,
@@ -142,7 +142,7 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         const { tokenId: targetTokenId } = await upsertTokenWithMeta(db, {
           networkId,
           address,
-          source: 'axelar-config',
+          source: { type: 'AxelarConfig' },
           externalId: token.fullDenomPath,
           symbol: token.assetSymbol,
           name: token.assetName,
