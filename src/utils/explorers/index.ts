@@ -9,7 +9,7 @@ type NetworkExplorerClient = ReturnType<typeof buildEtherscanExplorer>
 
 function instantiateExplorer(explorer: NetworkExplorer) {
   switch (explorer.type) {
-    case ExplorerType.ETHERSCAN:
+    case ExplorerType.Etherscan:
       return buildEtherscanExplorer(explorer.url, explorer.apiKey)
     default:
       throw new Error(`Unsupported explorer type: ${explorer.type}`)
