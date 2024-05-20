@@ -4,9 +4,9 @@ import { Cache } from '../cache/types.js'
 
 type Serializable = { toString: () => string }
 
-function buildCacheKeyForChain(chainId: number) {
+function buildKeyWithPrefix(prefix: number) {
   return (invocation: string, params: Serializable[]) => {
-    const result = [chainId, invocation, ...params.map((p) => p.toString())]
+    const result = [prefix, invocation, ...params.map((p) => p.toString())]
 
     return result.join('.')
   }
@@ -99,7 +99,7 @@ export function buildCachedEtherscanExplorer(
 ): ReturnType<typeof buildEtherscanExplorer> {
   const rawClient = buildEtherscanExplorer(apiUrl, apiKey)
 
-  const buildKey = buildCacheKeyForChain(chainId)
+  const buildKey = buildKeyWithPrefix(chainId)
 
   async function getContractDeployment(address: `0x${string}`) {
     const key = buildKey('getContractDeployment', [address])
