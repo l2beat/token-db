@@ -27,13 +27,13 @@ function buildOnChainMetadataSource({
 }: Dependencies) {
   logger = logger.for('OnChainMetadataSource').tag(networkConfig.name)
 
-  return async function () {
+  return async function (tokenIds: string[]) {
     logger.info(`Syncing tokens metadata...`)
     const tokens = await db.token.findMany({
       where: {
-        network: {
-          chainId: networkConfig.chainId,
-        },
+        OR: tokenIds.map((id) => ({
+          id,
+        })),
       },
     })
 

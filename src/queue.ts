@@ -24,6 +24,7 @@ import { buildArbitrumCanonicalSource } from './sources/arbitrumCanonical.js'
 import { buildOptimismCanonicalSource } from './sources/optimismCanonical.js'
 import { buildAxelarConfigSource } from './sources/axelarConfig.js'
 import { buildAxelarGatewaySource } from './sources/axelarGateway.js'
+import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 
@@ -183,6 +184,64 @@ const tokenUpdateInbox = setupQueue<TokenPayload>({
 
 const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
+const onChainMetadataGlobalInbox = setupQueue<TokenPayload>({
+  name: 'OnChainMetadataGlobalInbox',
+  connection,
+})
+
+const onChainMetadataBuses = networksConfig
+  .filter(withExplorer)
+  .map((networkConfig) => {
+    const eventCollectorInbox = setupQueue<TokenPayload>({
+      name: `OnChainMetadataEventCollector:${networkConfig.name}`,
+      connection,
+    })
+
+    const batchEventProcessor = buildSingleQueue<{ tokenIds: string[] }>({
+      connection,
+      logger,
+    })({
+      name: `OnChainMetadataBatchProcessor:${networkConfig.name}`,
+      processor: (job) =>
+        buildOnChainMetadataSource({
+          logger,
+          db,
+          networkConfig,
+        })(job.data.tokenIds),
+    })
+
+    setupCollector({
+      inputQueue: eventCollectorInbox,
+      outputQueue: batchEventProcessor.queue,
+      aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+      bufferSize: 100,
+      flushIntervalMs: oneMinuteMs,
+      connection,
+      logger,
+    })
+
+    return {
+      queue: eventCollectorInbox,
+      batchQueue: batchEventProcessor.queue,
+      routingKey: networkConfig.chainId,
+    }
+  })
+
+router.routingKey(async (event) => {
+  const token = await db.token.findFirstOrThrow({
+    where: { id: event.tokenId },
+    include: { network: true },
+  })
+
+  return token.network.chainId
+})(
+  onChainMetadataGlobalInbox,
+  onChainMetadataBuses.map((bus) => ({
+    queue: bus.queue,
+    routingKey: bus.routingKey,
+  })),
+)
+
 // #region Independent sources
 
 const coingeckoSource = buildCoingeckoSource({
@@ -275,7 +334,10 @@ const refreshInbox = setupQueue({
   connection,
 })
 
-router.forward(tokenUpdateInbox, deploymentRoutingInbox)
+router.broadcast(tokenUpdateInbox, [
+  deploymentRoutingInbox,
+  onChainMetadataGlobalInbox,
+])
 
 router.broadcast(
   refreshInbox,
@@ -299,6 +361,9 @@ const allQueues = [
   arbitrumCanonicalProcessor.queue,
   optimismCanonicalProcessor.queue,
   deploymentUpdatedInbox,
+  onChainMetadataBuses.map((b) => b.queue),
+  onChainMetadataBuses.map((b) => b.batchQueue),
+  onChainMetadataGlobalInbox,
 ].flat()
 
 createBullBoard({
@@ -309,8 +374,9 @@ createBullBoard({
 const app = express()
 
 app.use('/admin/queues', serverAdapter.getRouter())
-app.get('/refresh', () => {
+app.get('/refresh', (_req, res) => {
   refreshInbox.add('RefreshSignal', {})
+  res.status(201).send({ msg: 'Refresh signal sent' })
 })
 
 app.get('/refresh/axelar-gateway', () => {
