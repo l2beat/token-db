@@ -22,7 +22,7 @@ export function forward<
       queue: from,
       connection,
       processor: async (job: Job<Event>) => {
-        await to.add(job.name, job.data)
+        await to.add(job.name, job.data, job.opts)
       },
     })
 

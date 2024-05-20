@@ -15,7 +15,7 @@ export function broadcast<
       from.name,
       async (job) => {
         to.forEach((queue) => {
-          queue.add(job.name, job.data)
+          queue.add(job.name, job.data, job.opts)
         })
       },
       { connection },

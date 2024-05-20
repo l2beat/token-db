@@ -48,7 +48,7 @@ export function routingKey({
           const routingKey = await extractRoutingKey(job.data)
           const queue = queueMap.get(routingKey)
           if (queue) {
-            await queue.add(job.name, job.data)
+            await queue.add(job.name, job.data, job.opts)
           } else {
             logger
               .tag(from.name)
