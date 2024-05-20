@@ -106,7 +106,6 @@ export function buildCachedEtherscanExplorer(
     const cached = await cache.get(key)
 
     if (cached) {
-      console.log('getContractDeployment - cache hit')
       return JSON.parse(cached)
     }
 
@@ -122,7 +121,6 @@ export function buildCachedEtherscanExplorer(
     const cached = await cache.get(key)
 
     if (cached) {
-      console.log('getContractSource - cache hit')
       return JSON.parse(cached)
     }
 
@@ -148,7 +146,6 @@ export function buildCachedEtherscanExplorer(
     const cached = await cache.get(key)
 
     if (cached) {
-      console.log('getInternalTransactions - cache hit')
       return JSON.parse(cached)
     }
 
