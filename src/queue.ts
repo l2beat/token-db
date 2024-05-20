@@ -65,7 +65,7 @@ const lists = [
 ]
 
 // #region Deployment processors
-// Global inbox where Deployment events are broadcasted from independent sources
+// Routing inbox where TokenUpdate events are broadcasted from independent sources
 const deploymentRoutingInbox = setupQueue<TokenPayload>({
   name: 'DeploymentRoutingInbox',
   connection,
