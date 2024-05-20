@@ -64,11 +64,14 @@ const lists = [
   },
 ]
 
+// #region Deployment processors
+// Global inbox where Deployment events are broadcasted from independent sources
 const deploymentRoutingInbox = setupQueue<TokenPayload>({
   name: 'DeploymentRoutingInbox',
   connection,
 })
 
+// Output queue for the deployment processors where the tokenIds are broadcasted if the deployment is updated
 const deploymentUpdatedInbox = setupQueue<TokenPayload>({
   name: 'DeploymentUpdatedInbox',
   connection,
@@ -78,73 +81,7 @@ const deploymentUpdatedQueue = wrapDeploymentUpdatedQueue(
   deploymentUpdatedInbox,
 )
 
-const arbitrumCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
-  connection,
-  logger,
-})({
-  name: 'ArbitrumCanonicalProcessor',
-  processor: buildArbitrumCanonicalSource({ logger, db, networksConfig }),
-})
-
-const arbitrumCanonicalEventCollector = setupQueue<TokenPayload>({
-  name: 'ArbitrumCanonicalEventCollector',
-  connection,
-})
-const oneMinuteMs = 60 * 1000
-
-setupCollector({
-  inputQueue: arbitrumCanonicalEventCollector,
-  outputQueue: arbitrumCanonicalProcessor.queue,
-  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
-  bufferSize: 100,
-  flushIntervalMs: oneMinuteMs,
-  connection,
-  logger,
-})
-
-const optimismCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
-  connection,
-  logger,
-})({
-  name: 'OptimismCanonicalProcessor',
-  processor: buildOptimismCanonicalSource({ logger, db, networksConfig }),
-})
-
-const optimismCanonicalEventCollector = setupQueue<TokenPayload>({
-  name: 'OptimismCanonicalEventCollector',
-  connection,
-})
-
-setupCollector({
-  inputQueue: optimismCanonicalEventCollector,
-  outputQueue: optimismCanonicalProcessor.queue,
-  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
-  bufferSize: 100,
-  flushIntervalMs: oneMinuteMs,
-  connection,
-  logger,
-})
-
-router.routingKey(async (event) => {
-  const token = await db.token.findFirstOrThrow({
-    where: { id: event.tokenId },
-    include: { network: true },
-  })
-
-  return token.network.chainId
-})(deploymentUpdatedInbox, [
-  // Ditch the rest
-  {
-    queue: arbitrumCanonicalEventCollector,
-    routingKey: 42161,
-  },
-  {
-    queue: optimismCanonicalEventCollector,
-    routingKey: 10,
-  },
-])
-
-// Routed per chain id
+// For each supported network with an explorer, create a deployment processor
 const deploymentProcessors = networksConfig
   .filter(withExplorer)
   .map((networkConfig) => {
@@ -168,6 +105,7 @@ const deploymentProcessors = networksConfig
     }
   })
 
+// Route the events from deploymentRoutingInbox to the per-chain deployment processors
 router.routingKey(async (event) => {
   const token = await db.token.findFirstOrThrow({
     where: { id: event.tokenId },
@@ -176,6 +114,81 @@ router.routingKey(async (event) => {
 
   return token.network.chainId
 })(deploymentRoutingInbox, deploymentProcessors)
+// #endregion Deployment processors
+
+// #region Canonical sources - Arbitrum
+const arbitrumCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
+  connection,
+  logger,
+})({
+  name: 'ArbitrumCanonicalProcessor',
+  processor: buildArbitrumCanonicalSource({ logger, db, networksConfig }),
+})
+
+// Handle backpressure from the deployment processor
+const arbitrumCanonicalEventCollector = setupQueue<TokenPayload>({
+  name: 'ArbitrumCanonicalEventCollector',
+  connection,
+})
+const oneMinuteMs = 60 * 1000
+
+setupCollector({
+  inputQueue: arbitrumCanonicalEventCollector,
+  outputQueue: arbitrumCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+// #endregion Canonical sources - Arbitrum
+
+// #region Canonical sources - Optimism
+const optimismCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
+  connection,
+  logger,
+})({
+  name: 'OptimismCanonicalProcessor',
+  processor: buildOptimismCanonicalSource({ logger, db, networksConfig }),
+})
+
+// Handle backpressure from the deployment processor
+const optimismCanonicalEventCollector = setupQueue<TokenPayload>({
+  name: 'OptimismCanonicalEventCollector',
+  connection,
+})
+
+setupCollector({
+  inputQueue: optimismCanonicalEventCollector,
+  outputQueue: optimismCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+// #endregion Canonical sources - Optimism
+
+// #region Canonical sources update wire up
+router.routingKey(async (event) => {
+  const token = await db.token.findFirstOrThrow({
+    where: { id: event.tokenId },
+    include: { network: true },
+  })
+
+  return token.network.chainId
+})(deploymentUpdatedInbox, [
+  // Ditch the rest
+  {
+    queue: arbitrumCanonicalEventCollector,
+    routingKey: 42161,
+  },
+  {
+    queue: optimismCanonicalEventCollector,
+    routingKey: 10,
+  },
+])
+// #endregion Canonical sources update wire up
 
 const tokenUpdateInbox = setupQueue<TokenPayload>({
   name: 'TokenUpdateInbox',
@@ -184,19 +197,25 @@ const tokenUpdateInbox = setupQueue<TokenPayload>({
 
 const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
+// #region On-chain metadata sources
+// Global inbox where TokenUpdate events are broadcasted from independent sources
 const onChainMetadataGlobalInbox = setupQueue<TokenPayload>({
   name: 'OnChainMetadataGlobalInbox',
   connection,
 })
 
+// For each network, create routing inbox and backpressure (collector) queue
+// so we can batch process the events instead of calling node for each token
 const onChainMetadataBuses = networksConfig
   .filter(withExplorer)
   .map((networkConfig) => {
+    // Per-chain events will be collected here
     const eventCollectorInbox = setupQueue<TokenPayload>({
       name: `OnChainMetadataEventCollector:${networkConfig.name}`,
       connection,
     })
 
+    // Batch processor for the collected events
     const batchEventProcessor = buildSingleQueue<{ tokenIds: string[] }>({
       connection,
       logger,
@@ -210,6 +229,7 @@ const onChainMetadataBuses = networksConfig
         })(job.data.tokenIds),
     })
 
+    // Wire up the collector to the processor
     setupCollector({
       inputQueue: eventCollectorInbox,
       outputQueue: batchEventProcessor.queue,
@@ -227,6 +247,7 @@ const onChainMetadataBuses = networksConfig
     }
   })
 
+// Route the events from the global inbox to the per-chain event collectors
 router.routingKey(async (event) => {
   const token = await db.token.findFirstOrThrow({
     where: { id: event.tokenId },
@@ -241,7 +262,7 @@ router.routingKey(async (event) => {
     routingKey: bus.routingKey,
   })),
 )
-
+// #endregion On-chain metadata sources
 // #region Independent sources
 
 const coingeckoSource = buildCoingeckoSource({
@@ -329,24 +350,27 @@ const independentSources = [
   // ...lzV1Queues,
 ]
 
+// Input signal, might be removed
 const refreshInbox = setupQueue({
   name: 'RefreshInbox',
   connection,
 })
 
+// Input signal, might be removed
+router.broadcast(
+  refreshInbox,
+  independentSources.map((q) => q.queue),
+)
+
+// Broadcast the token update events to the independent sources to dependant sources
 router.broadcast(tokenUpdateInbox, [
   deploymentRoutingInbox,
   onChainMetadataGlobalInbox,
 ])
 
-router.broadcast(
-  refreshInbox,
-  independentSources.map((q) => q.queue),
-)
 // #endregion Independent sources
 
 // #region BullBoard
-
 const serverAdapter = new ExpressAdapter()
 serverAdapter.setBasePath('/admin/queues')
 
