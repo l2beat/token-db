@@ -7,6 +7,7 @@ import {
   instantiateExplorer,
 } from './explorers/index.js'
 import { notUndefined } from './notUndefined.js'
+import { DatabaseCache } from './cache/database-cache.js'
 
 type Dependencies = {
   logger: Logger
@@ -26,6 +27,8 @@ export async function getNetworksConfig({
   logger,
 }: Dependencies): Promise<NetworkConfig[]> {
   logger = logger.for('NetworksConfig')
+
+  const cache = new DatabaseCache(db)
 
   logger.info(`Getting networks config...`)
 
@@ -48,7 +51,10 @@ export async function getNetworksConfig({
       }
 
       const explorerClient = network.explorer
-        ? instantiateExplorer(network.explorer)
+        ? instantiateExplorer(network.explorer, {
+            cache: cache,
+            chainId: network.chainId,
+          })
         : undefined
 
       return {

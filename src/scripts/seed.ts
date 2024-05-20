@@ -197,9 +197,9 @@ async function resetDb() {
     throw new Error('Cannot truncate other database than local')
   }
 
-  const queries = Object.values(Prisma.ModelName).map(
-    (tableName) => `TRUNCATE TABLE "${tableName}" CASCADE;`,
-  )
+  const queries = Object.values(Prisma.ModelName)
+    .filter((tableName) => tableName !== 'Cache')
+    .map((tableName) => `TRUNCATE TABLE "${tableName}" CASCADE;`)
 
   await db.$transaction(queries.map((query) => db.$executeRawUnsafe(query)))
 

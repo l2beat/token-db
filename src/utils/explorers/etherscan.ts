@@ -1,9 +1,18 @@
 import { RateLimiter } from '@l2beat/backend-tools'
 import { z } from 'zod'
+import { Cache } from '../cache/types.js'
 
-export { buildEtherscanExplorer }
+type Serializable = { toString: () => string }
 
-function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
+function buildKeyWithPrefix(prefix: number) {
+  return (invocation: string, params: Serializable[]) => {
+    const result = [prefix, invocation, ...params.map((p) => p.toString())]
+
+    return result.join('.')
+  }
+}
+
+export function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
   const rateLimiter = new RateLimiter({
     callsPerMinute: 150,
   })
@@ -73,6 +82,82 @@ function buildEtherscanExplorer(apiUrl: string, apiKey: string) {
     })
 
     return GetInternalTransactionsResult.parse(response.result)
+  }
+
+  return {
+    getContractDeployment,
+    getContractSource,
+    getInternalTransactions,
+  }
+}
+
+export function buildCachedEtherscanExplorer(
+  apiUrl: string,
+  apiKey: string,
+  cache: Cache,
+  chainId: number,
+): ReturnType<typeof buildEtherscanExplorer> {
+  const rawClient = buildEtherscanExplorer(apiUrl, apiKey)
+
+  const buildKey = buildKeyWithPrefix(chainId)
+
+  async function getContractDeployment(address: `0x${string}`) {
+    const key = buildKey('getContractDeployment', [address])
+    const cached = await cache.get(key)
+
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
+    const result = await rawClient.getContractDeployment(address)
+
+    await cache.set(key, JSON.stringify(result), chainId)
+
+    return result
+  }
+
+  async function getContractSource(address: `0x${string}`) {
+    const key = buildKey('getContractSource', [address])
+    const cached = await cache.get(key)
+
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
+    const result = await rawClient.getContractSource(address)
+
+    if (result) {
+      await cache.set(key, JSON.stringify(result), chainId)
+    }
+
+    return result
+  }
+
+  async function getInternalTransactions(
+    address: `0x${string}`,
+    fromBlock: number,
+    toBlock: number,
+  ) {
+    const key = buildKey('getInternalTransactions', [
+      address,
+      fromBlock,
+      toBlock,
+    ])
+    const cached = await cache.get(key)
+
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
+    const result = await rawClient.getInternalTransactions(
+      address,
+      fromBlock,
+      toBlock,
+    )
+
+    await cache.set(key, JSON.stringify(result), chainId, toBlock)
+
+    return result
   }
 
   return {
