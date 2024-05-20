@@ -5,6 +5,8 @@ export type DeploymentUpdatedQueue = ReturnType<
   typeof wrapDeploymentUpdatedQueue
 >
 
+// Thin abstraction over the queue so we explicitly assign the job id to
+// prevent duplicate jobs if token is already awaiting for processing
 export function wrapTokenQueue(queue: Queue) {
   return {
     add: async (tokenId: string) => {
