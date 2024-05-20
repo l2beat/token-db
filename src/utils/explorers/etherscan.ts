@@ -111,7 +111,9 @@ export function buildCachedEtherscanExplorer(
 
     const result = await rawClient.getContractDeployment(address)
 
-    await cache.set(key, JSON.stringify(result), chainId)
+    if (result) {
+      await cache.set(key, JSON.stringify(result), chainId)
+    }
 
     return result
   }
