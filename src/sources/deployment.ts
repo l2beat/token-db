@@ -64,7 +64,9 @@ export function buildDeploymentSource({
     })
 
     await queue.add(token.id)
-    logger.info(`Synced token deployment info`)
+    logger.info(`Synced token deployment info`, {
+      tokenId: token.id,
+    })
   }
 }
 
