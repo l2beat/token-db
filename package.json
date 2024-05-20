@@ -13,7 +13,6 @@
     "clean": "rm -rf build",
     "db:export": "tsx src/scripts/export.ts",
     "dev": "prisma generate > /dev/null && tsx --no-warnings=ExperimentalWarning --watch src/main.ts",
-    "collect": "tsx --no-warnings=ExperimentalWarning --watch src/collect.ts",
     "db:format": "prisma format",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
