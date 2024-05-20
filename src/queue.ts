@@ -6,8 +6,6 @@ import { Token } from '@prisma/client'
 import express from 'express'
 import { createPrismaClient } from './db/prisma.js'
 import { connection } from './redis/redis.js'
-import { buildAxelarConfigSource } from './sources/axelar-config.js'
-import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildDeploymentSource } from './sources/deployment.js'
 import { buildOrbitSource } from './sources/orbit.js'
@@ -21,9 +19,11 @@ import {
   wrapDeploymentUpdatedQueue,
   wrapTokenQueue,
 } from './utils/queue/wrap.js'
-import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { setupCollector } from './utils/queue/aggregates/collector.js'
-import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
+import { buildArbitrumCanonicalSource } from './sources/arbitrumCanonical.js'
+import { buildOptimismCanonicalSource } from './sources/optimismCanonical.js'
+import { buildAxelarConfigSource } from './sources/axelarConfig.js'
+import { buildAxelarGatewaySource } from './sources/axelarGateway.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 

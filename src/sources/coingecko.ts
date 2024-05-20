@@ -75,11 +75,12 @@ function buildCoingeckoSource({ db, logger, queue }: Dependencies) {
       )
 
     logger.info('Inserting tokens', { count: tokens.length })
+
     const tokenIds = await upsertManyTokensWithMeta(db, tokens)
 
-    logger.info(`Synced ${tokens.length} tokens from Coingecko`)
-
     await Promise.all(tokenIds.map((id) => queue.add(id)))
+
+    logger.info(`Synced ${tokens.length} tokens from Coingecko`)
   }
 }
 

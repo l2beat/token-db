@@ -31,6 +31,16 @@ export function routingKey({
         to.map(({ queue, routingKey }) => [routingKey, queue]),
       )
 
+      if (queueMap.size !== to.length) {
+        throw new Error(`Duplicate routing keys for inbox queue: ${from.name}`)
+      }
+
+      if (to.length === 0) {
+        logger.warn(
+          'No queues has been set for routing, messages will be dropped',
+        )
+      }
+
       const routingWorker = setupWorker({
         queue: from,
         connection,

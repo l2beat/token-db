@@ -91,6 +91,7 @@ export function setupCollector<
           logger.info('Flushing buffer due to timeout', {
             from: inputQueue.name,
             to: outputQueue.name,
+            eventsAggregated: buffer?.length,
           })
           await flush()
         }, flushIntervalMs)
@@ -105,6 +106,7 @@ export function setupCollector<
         logger.info('Buffer full, flushing to output queue', {
           from: inputQueue.name,
           to: outputQueue.name,
+          eventsAggregated: buffer.length,
         })
         flush()
       }
