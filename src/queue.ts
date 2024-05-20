@@ -14,7 +14,7 @@ import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { eventRouter } from './utils/queue/router/index.js'
 import { setupQueue } from './utils/queue/setup-queue.js'
-import { buildSingleQueue } from './utils/queue/single-queue.js'
+import { setupQueueWithProcessor } from './utils/queue/queue-with-processor.js'
 import {
   wrapDeploymentUpdatedQueue,
   wrapTokenQueue,
@@ -27,6 +27,7 @@ import { buildAxelarGatewaySource } from './sources/axelarGateway.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 
 type TokenPayload = { tokenId: Token['id'] }
+type BatchTokenPayload = { tokenIds: Token['id'][] }
 
 const db = createPrismaClient()
 
@@ -42,8 +43,8 @@ const router = eventRouter({
   logger,
 })
 
-const sourceQueue = buildSingleQueue({ connection, logger })
-const dependantQueue = buildSingleQueue<TokenPayload>({ connection, logger })
+const queueWithProcessor = setupQueueWithProcessor({ connection, logger })
+const queue = setupQueue({ connection })
 
 const lists = [
   {
@@ -66,15 +67,13 @@ const lists = [
 
 // #region Deployment processors
 // Routing inbox where TokenUpdate events are broadcasted from independent sources
-const deploymentRoutingInbox = setupQueue<TokenPayload>({
+const deploymentRoutingInbox = queue<TokenPayload>({
   name: 'DeploymentRoutingInbox',
-  connection,
 })
 
 // Output queue for the deployment processors where the tokenIds are broadcasted if the deployment is updated
-const deploymentUpdatedInbox = setupQueue<TokenPayload>({
+const deploymentUpdatedInbox = queue<TokenPayload>({
   name: 'DeploymentUpdatedInbox',
-  connection,
 })
 
 const deploymentUpdatedQueue = wrapDeploymentUpdatedQueue(
@@ -92,7 +91,7 @@ const deploymentProcessors = networksConfig
       queue: deploymentUpdatedQueue,
     })
 
-    const bus = dependantQueue({
+    const bus = queueWithProcessor<TokenPayload>({
       name: `DeploymentProcessor:${networkConfig.name}`,
       processor: (job) => {
         return processor(job.data.tokenId)
@@ -117,18 +116,14 @@ router.routingKey(async (event) => {
 // #endregion Deployment processors
 
 // #region Canonical sources - Arbitrum
-const arbitrumCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
-  connection,
-  logger,
-})({
+const arbitrumCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
   name: 'ArbitrumCanonicalProcessor',
   processor: buildArbitrumCanonicalSource({ logger, db, networksConfig }),
 })
 
 // Handle backpressure from the deployment processor
-const arbitrumCanonicalEventCollector = setupQueue<TokenPayload>({
+const arbitrumCanonicalEventCollector = queue<TokenPayload>({
   name: 'ArbitrumCanonicalEventCollector',
-  connection,
 })
 const oneMinuteMs = 60 * 1000
 
@@ -144,18 +139,14 @@ setupCollector({
 // #endregion Canonical sources - Arbitrum
 
 // #region Canonical sources - Optimism
-const optimismCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
-  connection,
-  logger,
-})({
+const optimismCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
   name: 'OptimismCanonicalProcessor',
   processor: buildOptimismCanonicalSource({ logger, db, networksConfig }),
 })
 
 // Handle backpressure from the deployment processor
-const optimismCanonicalEventCollector = setupQueue<TokenPayload>({
+const optimismCanonicalEventCollector = queue<TokenPayload>({
   name: 'OptimismCanonicalEventCollector',
-  connection,
 })
 
 setupCollector({
@@ -190,18 +181,16 @@ router.routingKey(async (event) => {
 ])
 // #endregion Canonical sources update wire up
 
-const tokenUpdateInbox = setupQueue<TokenPayload>({
+const tokenUpdateInbox = queue<TokenPayload>({
   name: 'TokenUpdateInbox',
-  connection,
 })
 
 const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
 // #region On-chain metadata sources
 // Routing inbox where TokenUpdate events are broadcasted from independent sources
-const onChainMetadataRoutingInbox = setupQueue<TokenPayload>({
+const onChainMetadataRoutingInbox = queue<TokenPayload>({
   name: 'OnChainMetadataRoutingInbox',
-  connection,
 })
 
 // For each network, create routing inbox and backpressure (collector) queue
@@ -210,16 +199,12 @@ const onChainMetadataBuses = networksConfig
   .filter(withExplorer)
   .map((networkConfig) => {
     // Per-chain events will be collected here
-    const eventCollectorInbox = setupQueue<TokenPayload>({
+    const eventCollectorInbox = queue<TokenPayload>({
       name: `OnChainMetadataEventCollector:${networkConfig.name}`,
-      connection,
     })
 
     // Batch processor for the collected events
-    const batchEventProcessor = buildSingleQueue<{ tokenIds: string[] }>({
-      connection,
-      logger,
-    })({
+    const batchEventProcessor = queueWithProcessor<BatchTokenPayload>({
       name: `OnChainMetadataBatchProcessor:${networkConfig.name}`,
       processor: (job) =>
         buildOnChainMetadataSource({
@@ -282,7 +267,8 @@ const wormholeSource = buildWormholeSource({
 })
 const orbitSource = buildOrbitSource({ logger, db, queue: tokenUpdateQueue })
 const tokenListSources = lists.map(({ tag, url }) =>
-  sourceQueue({
+  queueWithProcessor({
+    name: `TokenListProcessor:${tag}`,
     processor: buildTokenListSource({
       tag,
       url,
@@ -290,7 +276,6 @@ const tokenListSources = lists.map(({ tag, url }) =>
       db,
       queue: tokenUpdateQueue,
     }),
-    name: `TokenListProcessor:${tag}`,
   }),
 )
 
@@ -309,7 +294,7 @@ const tokenListSources = lists.map(({ tag, url }) =>
 // const lzV1Queues = lzV1Sources.map((source) => sourceQueue(source))
 
 const axelarGatewayQueues = networksConfig.map((networkConfig) =>
-  sourceQueue({
+  queueWithProcessor({
     name: `AxelarGatewayProcessor:${networkConfig.name}`,
     processor: buildAxelarGatewaySource({
       logger,
@@ -320,22 +305,22 @@ const axelarGatewayQueues = networksConfig.map((networkConfig) =>
   }),
 )
 
-const coingeckoQueue = sourceQueue({
+const coingeckoQueue = queueWithProcessor({
   name: 'CoingeckoProcessor',
   processor: coingeckoSource,
 })
 
-const axelarConfigQueue = sourceQueue({
+const axelarConfigQueue = queueWithProcessor({
   name: 'AxelarConfigProcessor',
   processor: axelarConfigSource,
 })
 
-const wormholeQueue = sourceQueue({
+const wormholeQueue = queueWithProcessor({
   name: 'WormholeProcessor',
   processor: wormholeSource,
 })
 
-const orbitQueue = sourceQueue({
+const orbitQueue = queueWithProcessor({
   name: 'OrbitProcessor',
   processor: orbitSource,
 })
@@ -351,9 +336,8 @@ const independentSources = [
 ]
 
 // Input signal, might be removed
-const refreshInbox = setupQueue({
+const refreshInbox = queue({
   name: 'RefreshInbox',
-  connection,
 })
 
 // Input signal, might be removed

@@ -9,16 +9,15 @@ type EventProcessor<Event> = {
   processor: Processor<Event>
 }
 
-export function buildSingleQueue<Event = unknown>({
+export function setupQueueWithProcessor({
   connection,
   logger,
 }: { connection: Redis; logger: Logger }) {
-  return ({ name, processor }: EventProcessor<Event>) => {
+  return <Event = unknown>({ name, processor }: EventProcessor<Event>) => {
     const queueLogger = logger.for(name)
-    const queue = setupQueue<Event>({
-      name,
+    const queue = setupQueue({
       connection,
-    })
+    })<Event>({ name })
 
     const worker = setupWorker({
       queue,
@@ -27,7 +26,7 @@ export function buildSingleQueue<Event = unknown>({
       logger: queueLogger,
     })
 
-    queueLogger.info('Queue created')
+    queueLogger.info('Queue with processor created')
 
     return { queue, worker }
   }
