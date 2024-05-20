@@ -23,6 +23,7 @@ import {
 } from './utils/queue/wrap.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
 import { setupCollector } from './utils/queue/aggregates/collector.js'
+import { buildOptimismCanonicalSource } from './sources/optimism-canonical.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 
@@ -76,7 +77,7 @@ const deploymentUpdatedQueue = wrapDeploymentUpdatedQueue(
   deploymentUpdatedInbox,
 )
 
-const arbitrumCanonicalBatchInbox = buildSingleQueue<{ tokenIds: string[] }>({
+const arbitrumCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
   connection,
   logger,
 })({
@@ -84,15 +85,38 @@ const arbitrumCanonicalBatchInbox = buildSingleQueue<{ tokenIds: string[] }>({
   processor: buildArbitrumCanonicalSource({ logger, db, networksConfig }),
 })
 
-const arbitrumCanonicalAtomicInbox = setupQueue<TokenPayload>({
-  name: 'ArbitrumCanonicalAtomicProcessor',
+const arbitrumCanonicalEventCollector = setupQueue<TokenPayload>({
+  name: 'ArbitrumCanonicalEventCollector',
   connection,
 })
 const oneMinuteMs = 60 * 1000
 
 setupCollector({
-  inputQueue: arbitrumCanonicalAtomicInbox,
-  outputQueue: arbitrumCanonicalBatchInbox.queue,
+  inputQueue: arbitrumCanonicalEventCollector,
+  outputQueue: arbitrumCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+
+const optimismCanonicalProcessor = buildSingleQueue<{ tokenIds: string[] }>({
+  connection,
+  logger,
+})({
+  name: 'OptimismCanonicalProcessor',
+  processor: buildOptimismCanonicalSource({ logger, db, networksConfig }),
+})
+
+const optimismCanonicalEventCollector = setupQueue<TokenPayload>({
+  name: 'OptimismCanonicalEventCollector',
+  connection,
+})
+
+setupCollector({
+  inputQueue: optimismCanonicalEventCollector,
+  outputQueue: optimismCanonicalProcessor.queue,
   aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
   bufferSize: 100,
   flushIntervalMs: oneMinuteMs,
@@ -110,8 +134,12 @@ router.routingKey(async (event) => {
 })(deploymentUpdatedInbox, [
   // Ditch the rest
   {
-    queue: arbitrumCanonicalAtomicInbox,
+    queue: arbitrumCanonicalEventCollector,
     routingKey: 42161,
+  },
+  {
+    queue: optimismCanonicalEventCollector,
+    routingKey: 10,
   },
 ])
 
@@ -266,8 +294,10 @@ const allQueues = [
   refreshInbox,
   ...independentSources.map((q) => q.queue),
   deploymentProcessors.map((p) => p.queue),
-  arbitrumCanonicalBatchInbox.queue,
-  arbitrumCanonicalAtomicInbox,
+  arbitrumCanonicalEventCollector,
+  optimismCanonicalEventCollector,
+  arbitrumCanonicalProcessor.queue,
+  optimismCanonicalProcessor.queue,
   deploymentUpdatedInbox,
 ].flat()
 
