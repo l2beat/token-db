@@ -99,7 +99,7 @@ export function setupCollector<
       buffer.push(entry)
 
       if (buffer.length >= bufferSize) {
-        logger.info('Buffer full, flushing to output queue')
+        logger.debug('Buffer full, flushing to output queue')
         flush()
       }
     })
