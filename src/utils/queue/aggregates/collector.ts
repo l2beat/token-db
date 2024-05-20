@@ -30,7 +30,7 @@ export function setupCollector<
   outputQueue,
   aggregate,
   bufferSize = 5,
-  flushInterval = 10000,
+  flushIntervalMs = 10000,
   connection,
   logger,
 }: {
@@ -38,7 +38,7 @@ export function setupCollector<
   outputQueue: OutputQueue
   aggregate: (data: InputDataType[]) => OutputDataType
   bufferSize: number
-  flushInterval: number
+  flushIntervalMs: number
   connection: Redis
   logger: Logger
 }) {
@@ -88,9 +88,12 @@ export function setupCollector<
         buffer = [entry]
 
         setTimeout(async () => {
-          logger.debug('Flushing buffer due to timeout')
+          logger.info('Flushing buffer due to timeout', {
+            from: inputQueue.name,
+            to: outputQueue.name,
+          })
           await flush()
-        }, flushInterval)
+        }, flushIntervalMs)
         return
       }
 
@@ -99,7 +102,10 @@ export function setupCollector<
       buffer.push(entry)
 
       if (buffer.length >= bufferSize) {
-        logger.debug('Buffer full, flushing to output queue')
+        logger.info('Buffer full, flushing to output queue', {
+          from: inputQueue.name,
+          to: outputQueue.name,
+        })
         flush()
       }
     })
@@ -116,7 +122,7 @@ export function setupCollector<
 
   logger.info('Collector setup', {
     bufferSize,
-    flushInterval,
+    flushIntervalMs,
     from: inputQueue.name,
     to: outputQueue.name,
   })

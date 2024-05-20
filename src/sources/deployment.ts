@@ -7,17 +7,20 @@ import { upsertTokenMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkExplorerClient } from '../utils/explorers/index.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
+import { DeploymentUpdatedQueue } from '../utils/queue/wrap.js'
 
 type Dependencies = {
   logger: Logger
   db: PrismaClient
   networkConfig: WithExplorer<NetworkConfig>
+  queue: DeploymentUpdatedQueue
 }
 
 export function buildDeploymentSource({
   logger,
   db,
   networkConfig,
+  queue,
 }: Dependencies) {
   logger = logger.for('DeploymentSource').tag(networkConfig.name)
 
@@ -60,6 +63,7 @@ export function buildDeploymentSource({
       },
     })
 
+    await queue.add(token.id)
     logger.info(`Synced token deployment info`)
   }
 }

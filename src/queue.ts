@@ -10,7 +10,6 @@ import { buildAxelarConfigSource } from './sources/axelar-config.js'
 import { buildAxelarGatewaySource } from './sources/axelar-gateway.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
 import { buildDeploymentSource } from './sources/deployment.js'
-import { buildLayerZeroV1Source } from './sources/layerzero-v1.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { buildTokenListSource } from './sources/tokenList.js'
 import { buildWormholeSource } from './sources/wormhole.js'
@@ -18,7 +17,12 @@ import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { eventRouter } from './utils/queue/router/index.js'
 import { setupQueue } from './utils/queue/setup-queue.js'
 import { buildSingleQueue } from './utils/queue/single-queue.js'
-import { wrapTokenQueue } from './utils/queue/wrap.js'
+import {
+  wrapDeploymentUpdatedQueue,
+  wrapTokenQueue,
+} from './utils/queue/wrap.js'
+import { buildArbitrumCanonicalSource } from './sources/arbitrum-canonical.js'
+import { setupCollector } from './utils/queue/aggregates/collector.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 
@@ -63,11 +67,64 @@ const deploymentRoutingInbox = setupQueue<TokenPayload>({
   connection,
 })
 
+const deploymentUpdatedInbox = setupQueue<TokenPayload>({
+  name: 'DeploymentUpdatedInbox',
+  connection,
+})
+
+const deploymentUpdatedQueue = wrapDeploymentUpdatedQueue(
+  deploymentUpdatedInbox,
+)
+
+const arbitrumCanonicalBatchInbox = buildSingleQueue<{ tokenIds: string[] }>({
+  connection,
+  logger,
+})({
+  name: 'ArbitrumCanonicalProcessor',
+  processor: buildArbitrumCanonicalSource({ logger, db, networksConfig }),
+})
+
+const arbitrumCanonicalAtomicInbox = setupQueue<TokenPayload>({
+  name: 'ArbitrumCanonicalAtomicProcessor',
+  connection,
+})
+const oneMinuteMs = 60 * 1000
+
+setupCollector({
+  inputQueue: arbitrumCanonicalAtomicInbox,
+  outputQueue: arbitrumCanonicalBatchInbox.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+
+router.routingKey(async (event) => {
+  const token = await db.token.findFirstOrThrow({
+    where: { id: event.tokenId },
+    include: { network: true },
+  })
+
+  return token.network.chainId
+})(deploymentUpdatedInbox, [
+  // Ditch the rest
+  {
+    queue: arbitrumCanonicalAtomicInbox,
+    routingKey: 42161,
+  },
+])
+
 // Routed per chain id
 const deploymentProcessors = networksConfig
   .filter(withExplorer)
   .map((networkConfig) => {
-    const processor = buildDeploymentSource({ logger, db, networkConfig })
+    const processor = buildDeploymentSource({
+      logger,
+      db,
+      networkConfig,
+      queue: deploymentUpdatedQueue,
+    })
 
     const bus = dependantQueue({
       name: `DeploymentProcessor:${networkConfig.name}`,
@@ -129,19 +186,19 @@ const tokenListSources = lists.map(({ tag, url }) =>
   }),
 )
 
-const lzV1Sources = networksConfig.filter(withExplorer).map((networkConfig) => {
-  return {
-    name: `LayerZeroV1Processor:${networkConfig.name}`,
-    processor: buildLayerZeroV1Source({
-      logger,
-      db,
-      networkConfig,
-      queue: tokenUpdateQueue,
-    }),
-  }
-})
+// const lzV1Sources = networksConfig.filter(withExplorer).map((networkConfig) => {
+//   return {
+//     name: `LayerZeroV1Processor:${networkConfig.name}`,
+//     processor: buildLayerZeroV1Source({
+//       logger,
+//       db,
+//       networkConfig,
+//       queue: tokenUpdateQueue,
+//     }),
+//   }
+// })
 
-const lzV1Queues = lzV1Sources.map((source) => sourceQueue(source))
+// const lzV1Queues = lzV1Sources.map((source) => sourceQueue(source))
 
 const axelarGatewayQueues = networksConfig.map((networkConfig) =>
   sourceQueue({
@@ -182,7 +239,7 @@ const independentSources = [
   wormholeQueue,
   orbitQueue,
   ...tokenListSources,
-  ...lzV1Queues,
+  // ...lzV1Queues,
 ]
 
 const refreshInbox = setupQueue({
@@ -209,6 +266,9 @@ const allQueues = [
   refreshInbox,
   ...independentSources.map((q) => q.queue),
   deploymentProcessors.map((p) => p.queue),
+  arbitrumCanonicalBatchInbox.queue,
+  arbitrumCanonicalAtomicInbox,
+  deploymentUpdatedInbox,
 ].flat()
 
 createBullBoard({
