@@ -198,9 +198,9 @@ const tokenUpdateInbox = setupQueue<TokenPayload>({
 const tokenUpdateQueue = wrapTokenQueue(tokenUpdateInbox)
 
 // #region On-chain metadata sources
-// Global inbox where TokenUpdate events are broadcasted from independent sources
-const onChainMetadataGlobalInbox = setupQueue<TokenPayload>({
-  name: 'OnChainMetadataGlobalInbox',
+// Routing inbox where TokenUpdate events are broadcasted from independent sources
+const onChainMetadataRoutingInbox = setupQueue<TokenPayload>({
+  name: 'OnChainMetadataRoutingInbox',
   connection,
 })
 
@@ -256,7 +256,7 @@ router.routingKey(async (event) => {
 
   return token.network.chainId
 })(
-  onChainMetadataGlobalInbox,
+  onChainMetadataRoutingInbox,
   onChainMetadataBuses.map((bus) => ({
     queue: bus.queue,
     routingKey: bus.routingKey,
@@ -365,7 +365,7 @@ router.broadcast(
 // Broadcast the token update events to the independent sources to dependant sources
 router.broadcast(tokenUpdateInbox, [
   deploymentRoutingInbox,
-  onChainMetadataGlobalInbox,
+  onChainMetadataRoutingInbox,
 ])
 
 // #endregion Independent sources
@@ -387,7 +387,7 @@ const allQueues = [
   deploymentUpdatedInbox,
   onChainMetadataBuses.map((b) => b.queue),
   onChainMetadataBuses.map((b) => b.batchQueue),
-  onChainMetadataGlobalInbox,
+  onChainMetadataRoutingInbox,
 ].flat()
 
 createBullBoard({
