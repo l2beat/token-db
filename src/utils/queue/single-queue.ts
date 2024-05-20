@@ -24,6 +24,7 @@ export function buildSingleQueue<Event = unknown>({
       queue,
       connection,
       processor,
+      logger: queueLogger,
     })
 
     queueLogger.info('Queue created')

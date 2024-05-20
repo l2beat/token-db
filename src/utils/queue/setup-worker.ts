@@ -21,7 +21,7 @@ export function setupWorker<
 }) {
   const worker = new Worker<DataType, ResultType>(queue.name, processor, {
     connection,
-    concurrency: 5,
+    concurrency: 1,
   })
 
   if (logger) {

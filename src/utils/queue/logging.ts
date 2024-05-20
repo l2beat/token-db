@@ -17,13 +17,17 @@ export function setupWorkerLogging({
     logger.error('Worker error', { error })
   })
 
-  worker.on('failed', (job) => {
+  worker.on('failed', (job, error) => {
     const hasStalled = !job
 
     if (hasStalled) {
       logger.error('Event processing stalled')
     } else {
-      logger.error('Event processing failed', { id: job.id, name: job.name })
+      logger.error('Event processing failed', {
+        id: job.id,
+        name: job.name,
+        error,
+      })
     }
   })
 }
