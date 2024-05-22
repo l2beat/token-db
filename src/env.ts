@@ -4,7 +4,7 @@ import { z } from 'zod'
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   DATABASE_URL: z.string(),
-  REDIS_URL: z.string().default('redis://host.docker.internal:6379'),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
   COINGECKO_KEY: z.string().optional(),
   PRISMA_QUERY_LOG: z
     .string()
@@ -30,11 +30,12 @@ const schema = z.object({
 })
 
 function port() {
-  return z.number().transform((v) => {
-    if (v < 0 || v > 65535) {
+  return z.string().transform((v) => {
+    const vInt = parseInt(v)
+    if (vInt < 0 || vInt > 65535) {
       throw new Error('Invalid port number')
     }
-    return v
+    return vInt
   })
 }
 

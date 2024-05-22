@@ -1913,6 +1913,11 @@ parse-json@^4.0.0:
     error-ex "^1.3.1"
     json-parse-better-errors "^1.0.1"
 
+parse-redis-url-simple@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/parse-redis-url-simple/-/parse-redis-url-simple-1.0.2.tgz#1ad9b5940d58580718bd3beae09a5d9ed7de31ca"
+  integrity sha512-BT2TIyMUL2LUkCuTiQlFjgJgz+nWJU6y1J2ezQU4IQC3mh/Ve0NdTo3oWx2EzMi4crdyFlA8nllDsTdEFWDjNw==
+
 parseurl@~1.3.3:
   version "1.3.3"
   resolved "https://registry.yarnpkg.com/parseurl/-/parseurl-1.3.3.tgz#9da19e7bee8d12dff0513ed5b76957793bc2e8d4"

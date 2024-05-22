@@ -1,9 +1,5 @@
-import { createBullBoard } from '@bull-board/api'
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js'
-import { ExpressAdapter } from '@bull-board/express'
 import { Logger } from '@l2beat/backend-tools'
 import { Token } from '@prisma/client'
-import express from 'express'
 import { createPrismaClient } from './db/prisma.js'
 import { connection } from './redis/redis.js'
 import { buildCoingeckoSource } from './sources/coingecko.js'
@@ -26,6 +22,8 @@ import { buildAxelarConfigSource } from './sources/axelarConfig.js'
 import { buildAxelarGatewaySource } from './sources/axelarGateway.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { byTokenChainId } from './utils/queue/router/routing-key-rules.js'
+import { env } from './env.js'
+import { startQueueDashboard } from './utils/queue/dashboard.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 type BatchTokenPayload = { tokenIds: Token['id'][] }
@@ -344,49 +342,33 @@ router.broadcast({
 // #endregion Independent sources
 
 // #region BullBoard
-const serverAdapter = new ExpressAdapter()
-serverAdapter.setBasePath('/admin/queues')
 
-const allQueues = [
-  deploymentRoutingInbox,
-  tokenUpdateInbox,
-  refreshInbox,
-  ...independentSources.map((q) => q.queue),
-  deploymentProcessors.map((p) => p.queue),
-  arbitrumCanonicalEventCollector,
-  optimismCanonicalEventCollector,
-  arbitrumCanonicalProcessor.queue,
-  optimismCanonicalProcessor.queue,
-  deploymentUpdatedInbox,
-  onChainMetadataBuses.map((b) => b.queue),
-  onChainMetadataBuses.map((b) => b.batchQueue),
-  onChainMetadataRoutingInbox,
-].flat()
+const dashboardLogger = logger.for('QueueDashboard')
 
-createBullBoard({
-  queues: allQueues.map((q) => new BullMQAdapter(q)),
-  serverAdapter: serverAdapter,
-})
+if (env.QUEUE_DASHBOARD_PORT) {
+  const allQueues = [
+    deploymentRoutingInbox,
+    tokenUpdateInbox,
+    refreshInbox,
+    independentSources.map((q) => q.queue),
+    deploymentProcessors.map((p) => p.queue),
+    arbitrumCanonicalEventCollector,
+    optimismCanonicalEventCollector,
+    arbitrumCanonicalProcessor.queue,
+    optimismCanonicalProcessor.queue,
+    deploymentUpdatedInbox,
+    onChainMetadataBuses.map((b) => b.queue),
+    onChainMetadataBuses.map((b) => b.batchQueue),
+    onChainMetadataRoutingInbox,
+  ].flat()
 
-const app = express()
-
-app.use('/admin/queues', serverAdapter.getRouter())
-app.get('/refresh', (_req, res) => {
-  refreshInbox.add('RefreshSignal', {})
-  res.status(201).send({ msg: 'Refresh signal sent' })
-})
-
-app.get('/refresh/axelar-gateway', () => {
-  axelarConfigQueue.queue.add('RefreshSignal', {})
-})
-
-app.get('/refresh/lists', () => {
-  tokenListSources.forEach((q) => q.queue.add('RefreshSignal', {}))
-})
-
-app.listen(3000, () => {
-  console.log('Running on 3000...')
-  console.log('For the UI, open http://localhost:3000/admin/queues')
-})
-
+  await startQueueDashboard({
+    port: env.QUEUE_DASHBOARD_PORT,
+    logger: dashboardLogger,
+    queues: allQueues,
+    signalQueue: refreshInbox,
+  })
+} else {
+  dashboardLogger.warn('Queue dashboard is disabled')
+}
 // #endregion BullBoard
