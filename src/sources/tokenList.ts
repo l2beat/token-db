@@ -4,7 +4,7 @@ import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { zodFetch } from '../utils/zodFetch.js'
 import { TokenUpdateQueue } from '../utils/queue/wrap.js'
-import { checksumAddress } from 'viem'
+import { getAddress } from 'viem'
 
 export { buildTokenListSource }
 
@@ -40,7 +40,7 @@ function buildTokenListSource({ db, url, tag, logger, queue }: Dependencies) {
 
       return {
         networkId: chain.id,
-        address: checksumAddress(token.address as `0x${string}`),
+        address: getAddress(token.address, chain.chainId),
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
