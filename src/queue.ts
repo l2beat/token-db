@@ -338,7 +338,7 @@ router.broadcast({
 // Broadcast the token update events to the independent sources to dependant sources
 router.broadcast({
   from: tokenUpdateInbox,
-  to: [deploymentRoutingInbox, refreshInbox],
+  to: [deploymentRoutingInbox, onChainMetadataRoutingInbox],
 })
 
 // #endregion Independent sources
