@@ -3,6 +3,7 @@
 # Token-DB
 
 ## Run as queue
+
 1. Setup Redis service (see below)
 
 2. Setup Database
@@ -32,6 +33,8 @@ QUEUE_DASHBOARD_PORT=3000
 ```bash
 yarn queue
 ```
+
+> Check out current queue schema here: [Queue schema](https://link.excalidraw.com/l/1Pobo8fNXle/22icgOkmpSn)
 
 
 ## Redis
