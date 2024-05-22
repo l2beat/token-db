@@ -25,6 +25,7 @@ import { buildOptimismCanonicalSource } from './sources/optimismCanonical.js'
 import { buildAxelarConfigSource } from './sources/axelarConfig.js'
 import { buildAxelarGatewaySource } from './sources/axelarGateway.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
+import { byTokenChainId } from './utils/queue/router/routing-key-rules.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 type BatchTokenPayload = { tokenIds: Token['id'][] }
@@ -105,14 +106,11 @@ const deploymentProcessors = networksConfig
   })
 
 // Route the events from deploymentRoutingInbox to the per-chain deployment processors
-router.routingKey(async (event) => {
-  const token = await db.token.findFirstOrThrow({
-    where: { id: event.tokenId },
-    include: { network: true },
-  })
-
-  return token.network.chainId
-})(deploymentRoutingInbox, deploymentProcessors)
+router.routingKey({
+  from: deploymentRoutingInbox,
+  to: deploymentProcessors,
+  extractRoutingKey: byTokenChainId({ db }),
+})
 // #endregion Deployment processors
 
 // #region Canonical sources - Arbitrum
@@ -161,24 +159,21 @@ setupCollector({
 // #endregion Canonical sources - Optimism
 
 // #region Canonical sources update wire up
-router.routingKey(async (event) => {
-  const token = await db.token.findFirstOrThrow({
-    where: { id: event.tokenId },
-    include: { network: true },
-  })
-
-  return token.network.chainId
-})(deploymentUpdatedInbox, [
-  // Ditch the rest
-  {
-    queue: arbitrumCanonicalEventCollector,
-    routingKey: 42161,
-  },
-  {
-    queue: optimismCanonicalEventCollector,
-    routingKey: 10,
-  },
-])
+router.routingKey({
+  from: deploymentUpdatedInbox,
+  to: [
+    // Ditch the rest
+    {
+      queue: arbitrumCanonicalEventCollector,
+      routingKey: 42161,
+    },
+    {
+      queue: optimismCanonicalEventCollector,
+      routingKey: 10,
+    },
+  ],
+  extractRoutingKey: byTokenChainId({ db }),
+})
 // #endregion Canonical sources update wire up
 
 const tokenUpdateInbox = queue<TokenPayload>({
@@ -233,20 +228,14 @@ const onChainMetadataBuses = networksConfig
   })
 
 // Route the events from the global inbox to the per-chain event collectors
-router.routingKey(async (event) => {
-  const token = await db.token.findFirstOrThrow({
-    where: { id: event.tokenId },
-    include: { network: true },
-  })
-
-  return token.network.chainId
-})(
-  onChainMetadataRoutingInbox,
-  onChainMetadataBuses.map((bus) => ({
+router.routingKey({
+  from: onChainMetadataRoutingInbox,
+  to: onChainMetadataBuses.map((bus) => ({
     queue: bus.queue,
     routingKey: bus.routingKey,
   })),
-)
+  extractRoutingKey: byTokenChainId({ db }),
+})
 // #endregion On-chain metadata sources
 // #region Independent sources
 
@@ -341,16 +330,16 @@ const refreshInbox = queue({
 })
 
 // Input signal, might be removed
-router.broadcast(
-  refreshInbox,
-  independentSources.map((q) => q.queue),
-)
+router.broadcast({
+  from: refreshInbox,
+  to: independentSources.map((q) => q.queue),
+})
 
 // Broadcast the token update events to the independent sources to dependant sources
-router.broadcast(tokenUpdateInbox, [
-  deploymentRoutingInbox,
-  onChainMetadataRoutingInbox,
-])
+router.broadcast({
+  from: tokenUpdateInbox,
+  to: [deploymentRoutingInbox, refreshInbox],
+})
 
 // #endregion Independent sources
 

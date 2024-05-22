@@ -6,12 +6,21 @@ import { InferQueueDataType } from '../types.js'
 /**
  * Broadcast events from one queue to multiple queues.
  */
-export function broadcast<
-  EventQueue extends Queue = Queue,
-  Event = InferQueueDataType<EventQueue>,
->({ connection, logger }: { connection: Redis; logger: Logger }) {
-  return (from: EventQueue, to: EventQueue[]) => {
-    const broadcastWorker = new Worker<Event>(
+export function broadcast({
+  connection,
+  logger,
+}: { connection: Redis; logger: Logger }) {
+  return <
+    InputQueue extends Queue = Queue,
+    InputEvent = InferQueueDataType<InputQueue>,
+  >({
+    from,
+    to,
+  }: {
+    from: InputQueue
+    to: Queue<InputEvent>[]
+  }) => {
+    const broadcastWorker = new Worker<InputEvent>(
       from.name,
       async (job) => {
         to.forEach((queue) => {

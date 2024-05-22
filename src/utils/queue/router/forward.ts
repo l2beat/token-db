@@ -7,21 +7,24 @@ import { InferQueueDataType } from '../types.js'
 /**
  * Forward events from one queue to another.
  */
-export function forward<
-  EventQueue extends Queue = Queue,
-  Event = InferQueueDataType<EventQueue>,
->({
+export function forward({
   connection,
   logger,
 }: {
   connection: Redis
   logger: Logger
 }) {
-  return (from: EventQueue, to: EventQueue) => {
+  return <
+    InputQueue extends Queue = Queue,
+    InputEvent = InferQueueDataType<InputQueue>,
+  >(
+    from: InputQueue,
+    to: Queue<InputEvent>,
+  ) => {
     const forwardWorker = setupWorker({
       queue: from,
       connection,
-      processor: async (job: Job<Event>) => {
+      processor: async (job: Job<InputEvent>) => {
         await to.add(job.name, job.data, job.opts)
       },
     })
