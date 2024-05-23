@@ -7,31 +7,35 @@ import { upsertTokenMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkExplorerClient } from '../utils/explorers/index.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
+import { DeploymentUpdatedQueue } from '../utils/queue/wrap.js'
 
 type Dependencies = {
   logger: Logger
   db: PrismaClient
   networkConfig: WithExplorer<NetworkConfig>
-  token: {
-    id: string
-    networkId: string
-    address: string
-  }
+  queue: DeploymentUpdatedQueue
 }
 
 export function buildDeploymentSource({
   logger,
   db,
   networkConfig,
-  token,
+  queue,
 }: Dependencies) {
-  logger = logger
-    .for('DeploymentSource')
-    .tag(networkConfig.name)
-    .tag(token.address)
+  logger = logger.for('DeploymentSource').tag(networkConfig.name)
 
-  return async function () {
-    logger.info(`Syncing token deployment info...`)
+  return async function (tokenId: string) {
+    const token = await db.token.findFirst({
+      where: {
+        id: tokenId,
+      },
+    })
+
+    if (!token) {
+      logger.error('Token not found', { tokenId })
+      return
+    }
+
     const getDeployment = getDeploymentDataWithRetries(
       networkConfig.explorerClient,
       networkConfig.publicClient,
@@ -59,7 +63,10 @@ export function buildDeploymentSource({
       },
     })
 
-    logger.info(`Synced token deployment info`)
+    await queue.add(token.id)
+    logger.info(`Synced token deployment info`, {
+      tokenId: token.id,
+    })
   }
 }
 

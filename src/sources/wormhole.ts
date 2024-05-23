@@ -2,13 +2,20 @@ import Papa from 'papaparse'
 import { getAddress } from 'viem'
 import { z } from 'zod'
 
-import { assert } from '@l2beat/backend-tools'
+import { Logger, assert } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
 import { upsertTokenWithMeta } from '../db/helpers.js'
 import { env } from '../env.js'
-import { SourceContext } from './source.js'
+import { PrismaClient } from '../db/prisma.js'
+import { TokenUpdateQueue } from '../utils/queue/wrap.js'
 
-export function buildWormholeSource({ logger, db }: SourceContext) {
+type Dependencies = {
+  logger: Logger
+  db: PrismaClient
+  queue: TokenUpdateQueue
+}
+
+export function buildWormholeSource({ logger, db, queue }: Dependencies) {
   logger = logger.for('WormholeSource')
 
   return async () => {
@@ -81,6 +88,8 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
       return entry
     })
 
+    const tokenIds = new Set<string>()
+
     for (const token of normalized) {
       const sourceChain = networks.find(
         (chain) => chain.wormholeId && chain.wormholeId === token.chain,
@@ -104,6 +113,8 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
         logoUrl: token.logo,
       })
 
+      tokenIds.add(sourceTokenId)
+
       for (const wrapped of token.chains) {
         const destinationChain = networks.find(
           (chain) => chain.wormholeId && chain.wormholeId === wrapped.chain,
@@ -118,6 +129,8 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
             name: token.name,
             logoUrl: token.logo,
           })
+
+          tokenIds.add(targetTokenId)
 
           await db.tokenBridge.upsert({
             where: {
@@ -134,6 +147,8 @@ export function buildWormholeSource({ logger, db }: SourceContext) {
         }
       }
     }
+
+    await Promise.all([...tokenIds].map((tokenId) => queue.add(tokenId)))
     logger.info(`Synced tokens from Wormhole`)
   }
 }

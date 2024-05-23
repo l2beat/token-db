@@ -2,17 +2,20 @@ import { assert, Logger } from '@l2beat/backend-tools'
 import { nanoid } from 'nanoid'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig, WithExplorer } from '../utils/getNetworksConfig.js'
+import { TokenUpdateQueue } from '../utils/queue/wrap.js'
 
 type Dependencies = {
   db: PrismaClient
   logger: Logger
   networkConfig: WithExplorer<NetworkConfig>
+  queue: TokenUpdateQueue
 }
 
 export function buildLayerZeroV1Source({
   db,
   logger,
   networkConfig: { chainId, networkId, explorerClient, publicClient, name },
+  queue,
 }: Dependencies) {
   logger = logger.for('LayerZeroV1Source').tag(name)
 
@@ -122,6 +125,17 @@ export function buildLayerZeroV1Source({
     })
 
     logger.info('Inserting bridge escrows', { count: ercAddresses.length })
+    const tokenEntities = await db.token.findMany({
+      select: { id: true, networkId: true, address: true },
+      where: {
+        OR: ercAddresses.map((address) => ({
+          networkId: networkId,
+          address: address,
+        })),
+      },
+    })
+
+    logger.info('Upserting bridge escrows', { count: ercAddresses.length })
     await db.bridgeEscrow.upsertMany({
       data: ercAddresses.map((address) => ({
         id: nanoid(),
@@ -131,6 +145,9 @@ export function buildLayerZeroV1Source({
       })),
       conflictPaths: ['networkId', 'address'],
     })
+
+    await Promise.all(tokenEntities.map((token) => queue.add(token.id)))
+
     logger.info(`Synced tokens from LayerZero`)
   }
 }

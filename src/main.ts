@@ -8,15 +8,17 @@ import { createPrismaClient } from './db/prisma.js'
 import { buildArbitrumCanonicalSource } from './sources/arbitrumCanonical.js'
 import { buildAxelarConfigSource } from './sources/axelarConfig.js'
 import { buildDeploymentSource } from './sources/deployment.js'
-import { buildLayerZeroV1Source } from './sources/layerzeroV1.js'
 import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { buildOptimismCanonicalSource } from './sources/optimismCanonical.js'
 import { buildOrbitSource } from './sources/orbit.js'
 import { buildWormholeSource } from './sources/wormhole.js'
 import { getNetworksConfig, withExplorer } from './utils/getNetworksConfig.js'
 import { getTokensForChain } from './utils/getTokensForChain.js'
+import { TokenUpdateQueue } from './utils/queue/wrap.js'
 
 const db = createPrismaClient()
+
+const voidQueue = { add: () => {} } as unknown as TokenUpdateQueue
 
 const logger = new Logger({ format: 'pretty', colors: true })
 
@@ -50,12 +52,14 @@ const tokenListSources = lists.map(({ tag, url }) =>
     url,
     logger,
     db,
+    queue: voidQueue,
   }),
 )
 
 const coingeckoSource = buildCoingeckoSource({
   logger,
   db,
+  queue: voidQueue,
 })
 
 const axelarGatewaySources = networksConfig.map((networkConfig) =>
@@ -63,39 +67,51 @@ const axelarGatewaySources = networksConfig.map((networkConfig) =>
     logger,
     db,
     networkConfig,
+    queue: voidQueue,
   }),
 )
 
-const onChainMetadataSources = networksConfig.map((networkConfig) =>
-  buildOnChainMetadataSource({
-    logger,
-    db,
-    networkConfig,
-  }),
+const onChainMetadataSources = networksConfig.map(
+  (networkConfig) => async () => {
+    const tokens = await db.token.findMany({
+      where: { network: { chainId: networkConfig.chainId } },
+    })
+
+    return buildOnChainMetadataSource({
+      logger,
+      db,
+      networkConfig,
+    })(tokens.map((token) => token.id))
+  },
 )
-const axelarConfigSource = buildAxelarConfigSource({ logger, db })
+const axelarConfigSource = buildAxelarConfigSource({
+  logger,
+  db,
+  queue: voidQueue,
+})
 
-const wormholeSource = buildWormholeSource({ logger, db })
+const wormholeSource = buildWormholeSource({ logger, db, queue: voidQueue })
 
-const orbitSource = buildOrbitSource({ logger, db })
+const orbitSource = buildOrbitSource({ logger, db, queue: voidQueue })
 
-const lzSources = networksConfig.filter(withExplorer).map((networkConfig) =>
-  buildLayerZeroV1Source({
-    logger,
-    db,
-    networkConfig,
-  }),
-)
+// const lzSources = networksConfig.filter(withExplorer).map((networkConfig) =>
+//   buildLayerZeroV1Source({
+//     logger,
+//     db,
+//     networkConfig,
+//     queue: voidQueue,
+//   }),
+// )
 
 const pipeline = [
   coingeckoSource,
   ...tokenListSources,
   ...axelarGatewaySources,
-  ...onChainMetadataSources,
   axelarConfigSource,
   wormholeSource,
   orbitSource,
-  ...lzSources,
+  ...onChainMetadataSources,
+  // ...lzSources,
 ]
 
 for (const step of pipeline) {
@@ -122,13 +138,14 @@ const deploymentSources = (
         count: tokens.length,
       })
 
-      return tokens.map((token) =>
-        buildDeploymentSource({
-          logger,
-          db,
-          networkConfig,
-          token,
-        }),
+      return tokens.map(
+        (token) => () =>
+          buildDeploymentSource({
+            logger,
+            db,
+            networkConfig,
+            queue: voidQueue,
+          })(token.id),
       )
     }),
   )

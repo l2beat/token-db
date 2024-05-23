@@ -4,6 +4,7 @@ import { z } from 'zod'
 const schema = z.object({
   NODE_ENV: z.string().default('development'),
   DATABASE_URL: z.string(),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
   COINGECKO_KEY: z.string().optional(),
   PRISMA_QUERY_LOG: z
     .string()
@@ -25,7 +26,18 @@ const schema = z.object({
     .default(
       'https://raw.githubusercontent.com/wormhole-foundation/wormhole-token-list/main/content/by_source.csv',
     ),
+  QUEUE_DASHBOARD_PORT: port().optional(),
 })
+
+function port() {
+  return z.string().transform((v) => {
+    const vInt = parseInt(v)
+    if (vInt < 0 || vInt > 65535) {
+      throw new Error('Invalid port number')
+    }
+    return vInt
+  })
+}
 
 export const env = (() => {
   const result = schema.safeParse(process.env)

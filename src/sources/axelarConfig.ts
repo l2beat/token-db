@@ -1,13 +1,19 @@
-import { assert } from '@l2beat/backend-tools'
+import { Logger, assert } from '@l2beat/backend-tools'
 import { z } from 'zod'
 
 import { nanoid } from 'nanoid'
 import { upsertTokenWithMeta } from '../db/helpers.js'
 import { env } from '../env.js'
 import { zodFetch } from '../utils/zodFetch.js'
-import { SourceContext } from './source.js'
+import { TokenUpdateQueue } from '../utils/queue/wrap.js'
+import { PrismaClient } from '../db/prisma.js'
 
-export function buildAxelarConfigSource({ logger, db }: SourceContext) {
+type Dependencies = {
+  logger: Logger
+  db: PrismaClient
+  queue: TokenUpdateQueue
+}
+export function buildAxelarConfigSource({ logger, db, queue }: Dependencies) {
   logger = logger.for('AxelarConfigSource')
 
   return async () => {
@@ -58,6 +64,8 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
           }
         }),
       )
+
+    const tokenIds = new Set<string>()
 
     for (const definition of Object.values(res)) {
       // Find the native chain aliast in the defintion
@@ -122,6 +130,8 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         name: sourceToken.assetName,
       })
 
+      tokenIds.add(sourceTokenId)
+
       // Next, process the bridged tokens
       for (const [chain, token] of bridgedTokens) {
         const network = networks.find((n) => n.axelarId && n.axelarId === chain)
@@ -148,6 +158,8 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
           name: token.assetName,
         })
 
+        tokenIds.add(targetTokenId)
+
         // Upsert the bridge entry
         await db.tokenBridge.upsert({
           where: {
@@ -163,6 +175,8 @@ export function buildAxelarConfigSource({ logger, db }: SourceContext) {
         })
       }
     }
+
+    await Promise.all([...tokenIds].map((tokenId) => queue.add(tokenId)))
     logger.info(`Synced tokens from Axelar config`)
   }
 }

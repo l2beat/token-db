@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { zodFetch } from '../utils/zodFetch.js'
+import { TokenUpdateQueue } from '../utils/queue/wrap.js'
+import { getAddress } from 'viem'
 
 export { buildTokenListSource }
 
@@ -11,9 +13,10 @@ type Dependencies = {
   tag: string
   logger: Logger
   db: PrismaClient
+  queue: TokenUpdateQueue
 }
 
-function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
+function buildTokenListSource({ db, url, tag, logger, queue }: Dependencies) {
   logger = logger.for('TokenListSource').tag(`${tag}`)
 
   return async function () {
@@ -37,7 +40,7 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
 
       return {
         networkId: chain.id,
-        address: token.address.toUpperCase(),
+        address: getAddress(token.address, chain.chainId),
         symbol: token.symbol,
         decimals: token.decimals,
         name: token.name,
@@ -52,8 +55,10 @@ function buildTokenListSource({ db, url, tag, logger }: Dependencies) {
     }
 
     logger.info('Inserting tokens', { count: tokens.length })
-    await upsertManyTokensWithMeta(db, tokens)
 
+    const tokenIds = await upsertManyTokensWithMeta(db, tokens)
+
+    await Promise.all(tokenIds.map((tokenId) => queue.add(tokenId)))
     logger.info(`Synced ${tokens.length} tokens for token list`)
   }
 }

@@ -4,6 +4,7 @@ import { isAddress, parseAbiItem } from 'viem'
 import { upsertManyTokensWithMeta } from '../db/helpers.js'
 import { PrismaClient } from '../db/prisma.js'
 import { NetworkConfig } from '../utils/getNetworksConfig.js'
+import { TokenUpdateQueue } from '../utils/queue/wrap.js'
 
 export { buildAxelarGatewaySource }
 
@@ -11,9 +12,15 @@ type Dependencies = {
   logger: Logger
   db: PrismaClient
   networkConfig: NetworkConfig
+  queue: TokenUpdateQueue
 }
 
-function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
+function buildAxelarGatewaySource({
+  logger,
+  db,
+  networkConfig,
+  queue,
+}: Dependencies) {
   logger = logger.for('AxelarGatewaySource').tag(`${networkConfig.name}`)
 
   return async function () {
@@ -76,8 +83,9 @@ function buildAxelarGatewaySource({ logger, db, networkConfig }: Dependencies) {
         }))
 
       logger.info('Inserting tokens', { count: tokens.length })
-      await upsertManyTokensWithMeta(db, tokens)
+      const tokenIds = await upsertManyTokensWithMeta(db, tokens)
 
+      await Promise.all(tokenIds.map((tokenId) => queue.add(tokenId)))
       logger.info(`Synced ${tokens.length} tokens from Axelar Gateway`)
     } catch (e) {
       logger.error(
