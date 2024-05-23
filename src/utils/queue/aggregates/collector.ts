@@ -1,8 +1,9 @@
 import { Logger } from '@l2beat/backend-tools'
-import { Job, Queue, Worker } from 'bullmq'
+import { Job, Queue } from 'bullmq'
 import { Redis } from 'ioredis'
 import { setupWorkerLogging } from '../logging.js'
 import { InferQueueDataType, InferQueueResultType } from '../types.js'
+import { setupWorker } from '../setup-worker.js'
 
 type BufferEntry<T> = {
   payload: T
@@ -113,9 +114,12 @@ export function setupCollector<
     })
   }
 
-  const worker = new Worker<InputDataType>(inputQueue.name, processor, {
+  const worker = setupWorker({
+    queue: inputQueue,
     connection,
-    concurrency: bufferSize,
+    processor,
+    logger,
+    workerOptions: { concurrency: bufferSize },
   })
 
   if (logger) {
