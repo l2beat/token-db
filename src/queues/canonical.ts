@@ -8,11 +8,9 @@ import { buildArbitrumCanonicalSource } from '../sources/arbitrumCanonical.js'
 import { setupCollector } from '../utils/queue/aggregates/collector.js'
 import { buildOptimismCanonicalSource } from '../sources/optimismCanonical.js'
 import { buildZkSyncCanonicalSource } from '../sources/zkSyncCanonical.js'
+import { BatchTokenPayload, TokenPayload } from './payloads.js'
 
 const oneMinuteMs = 60 * 1000
-
-type TokenPayload = { tokenId: string }
-type BatchTokenPayload = { tokenIds: string[] }
 
 export async function setupCanonicalQueues({
   connection,
