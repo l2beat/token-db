@@ -25,6 +25,7 @@ import { byTokenChainId } from './utils/queue/router/routing-key-rules.js'
 import { env } from './env.js'
 import { startQueueDashboard } from './utils/queue/dashboard.js'
 import { buildLineaCanonicalSource } from './sources/lineaCanonical.js'
+import { buildZkSyncCanonicalSource } from './sources/zkSyncCanonical.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 type BatchTokenPayload = { tokenIds: Token['id'][] }
@@ -179,6 +180,28 @@ setupCollector({
 })
 // #endregion Canonical sources - Linea
 
+// #region Canonical sources - ZkSync
+const zkSyncCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
+  name: 'ZkSyncCanonicalProcessor',
+  processor: buildZkSyncCanonicalSource({ logger, db, networksConfig }),
+})
+
+// Handle backpressure from the deployment processor
+const zkSyncCanonicalEventCollector = queue<TokenPayload>({
+  name: 'ZkSyncCanonicalEventCollector',
+})
+
+setupCollector({
+  inputQueue: zkSyncCanonicalEventCollector,
+  outputQueue: zkSyncCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+// #endregion Canonical sources - ZkSync
+
 // #region Canonical sources update wire up
 router.routingKey({
   from: deploymentUpdatedInbox,
@@ -195,6 +218,10 @@ router.routingKey({
     {
       queue: lineaCanonicalEventCollector,
       routingKey: 59144,
+    },
+    {
+      queue: zkSyncCanonicalEventCollector,
+      routingKey: 324,
     },
   ],
   extractRoutingKey: byTokenChainId({ db }),
