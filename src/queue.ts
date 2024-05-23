@@ -24,6 +24,7 @@ import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { byTokenChainId } from './utils/queue/router/routing-key-rules.js'
 import { env } from './env.js'
 import { startQueueDashboard } from './utils/queue/dashboard.js'
+import { buildLineaCanonicalSource } from './sources/lineaCanonical.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 type BatchTokenPayload = { tokenIds: Token['id'][] }
@@ -156,6 +157,28 @@ setupCollector({
 })
 // #endregion Canonical sources - Optimism
 
+// #region Canonical sources - Linea
+const lineaCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
+  name: 'LineaCanonicalProcessor',
+  processor: buildLineaCanonicalSource({ logger, db, networksConfig }),
+})
+
+// Handle backpressure from the deployment processor
+const lineaCanonicalEventCollector = queue<TokenPayload>({
+  name: 'LineaCanonicalEventCollector',
+})
+
+setupCollector({
+  inputQueue: lineaCanonicalEventCollector,
+  outputQueue: lineaCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+// #endregion Canonical sources - Linea
+
 // #region Canonical sources update wire up
 router.routingKey({
   from: deploymentUpdatedInbox,
@@ -168,6 +191,10 @@ router.routingKey({
     {
       queue: optimismCanonicalEventCollector,
       routingKey: 10,
+    },
+    {
+      queue: lineaCanonicalEventCollector,
+      routingKey: 59144,
     },
   ],
   extractRoutingKey: byTokenChainId({ db }),
