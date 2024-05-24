@@ -25,6 +25,7 @@ import { byTokenChainId } from './utils/queue/router/routing-key-rules.js'
 import { env } from './env.js'
 import { startQueueDashboard } from './utils/queue/dashboard.js'
 import { buildZkSyncCanonicalSource } from './sources/zkSyncCanonical.js'
+import { buildScrollCanonicalSource } from './sources/scrollCanonical.js'
 
 type TokenPayload = { tokenId: Token['id'] }
 type BatchTokenPayload = { tokenIds: Token['id'][] }
@@ -179,6 +180,28 @@ setupCollector({
 })
 // #endregion Canonical sources - ZkSync
 
+// #region Canonical sources - Scroll
+const scrollCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
+  name: 'ScrollCanonicalProcessor',
+  processor: buildScrollCanonicalSource({ logger, db, networksConfig }),
+})
+
+// Handle backpressure from the deployment processor
+const scrollCanonicalEventCollector = queue<TokenPayload>({
+  name: 'ScrollCanonicalEventCollector',
+})
+
+setupCollector({
+  inputQueue: scrollCanonicalEventCollector,
+  outputQueue: scrollCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+// #endregion Canonical sources - Scroll
+
 // #region Canonical sources update wire up
 router.routingKey({
   from: deploymentUpdatedInbox,
@@ -195,6 +218,10 @@ router.routingKey({
     {
       queue: zkSyncCanonicalEventCollector,
       routingKey: 324,
+    },
+    {
+      queue: scrollCanonicalEventCollector,
+      routingKey: 534352,
     },
   ],
   extractRoutingKey: byTokenChainId({ db }),
