@@ -93,6 +93,7 @@ model Network {
   orbitId                    String?          @db.VarChar(256)
   wormholeId                 String?          @db.VarChar(256)
   layerZeroV1EndpointAddress String?          @db.Char(42)
+  logoUrl                    String?          @db.VarChar(256)
   bridgeEscrows              BridgeEscrow[]   @relation("network")
   canonicalBridgeEscrows     BridgeEscrow[]   @relation("canonicalNetwork")
   rpcs                       NetworkRpc[]
