@@ -112,30 +112,40 @@ async function seed() {
       orbitId: 'eth',
       wormholeId: 'eth',
       layerZeroV1EndpointAddress: '0x66A71Dcef29A0fFBDBE3c6a460a3B5BC225Cd675',
+      logoUrl:
+        'https://assets.coingecko.com/asset_platforms/images/279/standard/ethereum.png?1706606803',
     },
     'arbitrum-one': {
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       axelarId: 'arbitrum',
       wormholeId: 'arbitrum',
       layerZeroV1EndpointAddress: '0x3c2269811836af69497E5F486A85D7316753cf62',
+      logoUrl:
+        'https://assets.coingecko.com/asset_platforms/images/33/standard/AO_logomark.png?1706606717',
     },
     'optimistic-ethereum': {
       axelarId: 'optimism',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       wormholeId: 'optimism',
       layerZeroV1EndpointAddress: '0x3c2269811836af69497E5F486A85D7316753cf62',
+      logoUrl:
+        'https://assets.coingecko.com/asset_platforms/images/41/standard/optimism.png?1706606778',
     },
     base: {
       axelarId: 'base',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       wormholeId: 'base',
       layerZeroV1EndpointAddress: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+      logoUrl:
+        'https://assets.coingecko.com/asset_platforms/images/131/standard/base.jpeg?1706606719',
     },
     linea: {
       axelarId: 'linea',
       axelarGatewayAddress: '0xe432150cce91c13a887f7D836923d5597adD8E31',
       wormholeId: 'linea',
       layerZeroV1EndpointAddress: '0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7',
+      logoUrl:
+        'https://assets.coingecko.com/asset_platforms/images/135/standard/linea.jpeg?1706606705',
     },
   } as const
 
