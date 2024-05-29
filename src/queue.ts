@@ -24,6 +24,7 @@ import { buildOnChainMetadataSource } from './sources/onChainMetadata.js'
 import { byTokenChainId } from './utils/queue/router/routing-key-rules.js'
 import { env } from './env.js'
 import { startQueueDashboard } from './utils/queue/dashboard.js'
+import { buildLineaCanonicalSource } from './sources/lineaCanonical.js'
 import { buildZkSyncCanonicalSource } from './sources/zkSyncCanonical.js'
 import { buildScrollCanonicalSource } from './sources/scrollCanonical.js'
 
@@ -158,6 +159,28 @@ setupCollector({
 })
 // #endregion Canonical sources - Optimism
 
+// #region Canonical sources - Linea
+const lineaCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
+  name: 'LineaCanonicalProcessor',
+  processor: buildLineaCanonicalSource({ logger, db, networksConfig }),
+})
+
+// Handle backpressure from the deployment processor
+const lineaCanonicalEventCollector = queue<TokenPayload>({
+  name: 'LineaCanonicalEventCollector',
+})
+
+setupCollector({
+  inputQueue: lineaCanonicalEventCollector,
+  outputQueue: lineaCanonicalProcessor.queue,
+  aggregate: (data) => ({ tokenIds: data.map((d) => d.tokenId) }),
+  bufferSize: 100,
+  flushIntervalMs: oneMinuteMs,
+  connection,
+  logger,
+})
+// #endregion Canonical sources - Linea
+
 // #region Canonical sources - ZkSync
 const zkSyncCanonicalProcessor = queueWithProcessor<BatchTokenPayload>({
   name: 'ZkSyncCanonicalProcessor',
@@ -214,6 +237,10 @@ router.routingKey({
     {
       queue: optimismCanonicalEventCollector,
       routingKey: 10,
+    },
+    {
+      queue: lineaCanonicalEventCollector,
+      routingKey: 59144,
     },
     {
       queue: zkSyncCanonicalEventCollector,
